@@ -32,7 +32,7 @@ state.referenceMode=true;
 state.hitEffects=true;
 state.noteScale=1;
 state.flowSpeed=1.66;
-LINE_DEFAULTS[VISIBLE_AREA]=1e9; /* RainPlayer MilAnimationDefaults.Line[VisibleArea]: default is effectively uncapped. */
+LINE_DEFAULTS[VISIBLE_AREA]=Math.hypot(1920,1080)*1.5;
 
 /* ----- Easing implementation (press 0..10, direction 0..2). ----- */
 function __pluEaseIn(press,p){
@@ -87,7 +87,7 @@ eventValue=function(ev,def,sec){
   if(ev.fv==null&&ev.tv==null)return VIS_KEYS.has(ev.key)?0:def;
   const fv=ev.fv==null?def:ev.fv,tv=ev.tv==null?fv:ev.tv,span=ev.endSec-ev.startSec;
   let p=Math.abs(span)<1e-12?1:clamp((sec-ev.startSec)/span,0,1);
-  if((ev.press|0)!==0)p=__pluEase(ev.press,ev.ease,p);
+  if((ev.press|0)!==0)p=ev.press>10?easeValue(ev.ease,ev.press,p,ev.custom):__pluEase(ev.press,ev.ease,p);
   if(Array.isArray(ev.samples)&&ev.samples.length){
     if(ev.samples.length===1)return ev.samples[0];
     const intervals=ev.samples.length-1,cursor=clamp(p,0,1)*intervals,index=Math.min(Math.floor(cursor),ev.samples.length-1),next=Math.min(index+1,ev.samples.length-1),local=index===ev.samples.length-1?0:(p%(1/intervals))*intervals;
@@ -102,7 +102,8 @@ eventValue=function(ev,def,sec){
 eventIntegral=function(ev,def,sec){
   const fv=ev.fv==null?def:ev.fv,tv=ev.tv==null?fv:ev.tv,st=ev.startSec,ed=ev.endSec,span=ed-st;
   if(Math.abs(span)<1e-12)return sec<st?-fv*(st-sec):tv*Math.max(0,sec-st);
-  const p=clamp((sec-st)/span,0,1),integralProgress=(ev.press|0)===0?p*p/2:__pluEasingIntegral(ev.ease,p);
+  // Milthm Speed is linear irrespective of its serialized easing flags.
+  const p=clamp((sec-st)/span,0,1),integralProgress=p*p/2;
   let result=span*(fv*p+(tv-fv)*integralProgress);if(sec>ed)result+=tv*(sec-ed);if(sec<st)result-=fv*(st-sec);return result;
 };
 
@@ -161,11 +162,15 @@ compileEvents=function(chart,timeline){
   if(Array.isArray(chart.animations)&&chart.animations.length)for(const a of chart.animations)addRaw(a,null);else (chart.lines||[]).forEach((line,li)=>(line.animations||[]).forEach(a=>addRaw(a,li)));
   const out=new Map();for(const [k,list] of bucket){list.sort((a,b)=>a.startSec-b.startSec||a.endSec-b.endSec||a.order-b.order);const [data,idx,key]=k.split('|').map(Number),starts=list.map(e=>e.startSec),ends=list.map(e=>e.endSec),floor=[];
     if(key===SPEED){const def=data===BEARER_LINE?LINE_DEFAULTS[SPEED]:(NOTE_DEFAULTS[SPEED]??0),firstFrom=list[0].fv==null?def:list[0].fv;let cumulative=starts[0]*firstFrom;for(let i=0;i<list.length;i++){floor[i]=cumulative;if(i+1<list.length)cumulative+=eventIntegral(list[i],def,starts[i+1])}}
-    const track={events:list,starts,ends,floor,current:0,lastTime:Number.NEGATIVE_INFINITY};if(!out.has(data))out.set(data,new Map());if(!out.get(data).has(idx))out.get(data).set(idx,new Map());out.get(data).get(idx).set(key,track);
+    // Each transition requires every previous event to have finished. Prefix maxima
+    // preserve overlapping-event semantics while supporting arbitrary seeks in O(log N).
+    const transitions=[];let threshold=-Infinity;
+    for(let i=1;i<list.length;i++){threshold=Math.max(threshold,list[i-1].endSec,list[i].startSec);transitions.push(threshold)}
+    const track={events:list,starts,ends,floor,transitions,current:0,lastTime:Number.NEGATIVE_INFINITY};if(!out.has(data))out.set(data,new Map());if(!out.get(data).has(idx))out.get(data).set(idx,new Map());out.get(data).get(idx).set(key,track);
   }return out;
 };
 evalTrack=function(track,sec,def,key){
-  if(!track||!track.events.length)return key===SPEED?sec*def:def;const evs=track.events;if(sec<track.lastTime)track.current=0;while(track.current+1<evs.length&&evs[track.current].endSec<=sec&&evs[track.current+1].startSec<=sec)track.current++;track.lastTime=sec;const ev=evs[track.current];if(key===SPEED)return (track.floor[track.current]||0)+eventIntegral(ev,def,sec);return eventValue(ev,def,sec);
+  if(!track||!track.events.length)return key===SPEED?sec*def:def;const evs=track.events;track.current=upperBound(track.transitions,sec);track.lastTime=sec;const ev=evs[track.current];if(key===SPEED)return (track.floor[track.current]||0)+eventIntegral(ev,def,sec);return eventValue(ev,def,sec);
 };
 
 const __pluMakeRuntimeLegacy=makeRuntime;
@@ -189,8 +194,14 @@ transformLine=function(rt,li,sec,w,h){
   return{lineIdx:li,center,scale,rawScale,absScale:scale,rotation,rawRotation,angle:90-rotation,transparency:clamp(rt.lineValue(li,TRANSPARENCY,sec),0,1),bodyAlpha:clamp(rt.lineValue(li,LINE_BODY_ALPHA,sec),0,1),headAlpha:clamp(rt.lineValue(li,LINE_HEAD_ALPHA,sec),0,1),wholeAlpha:clamp(rt.lineValue(li,WHOLE_ALPHA,sec),0,1),flow:rt.lineValue(li,FLOW,sec),floor:rt.lineValue(li,SPEED,sec),color:rgbaFromUint(rt.lineValue(li,COLOR,sec)),visible:rt.lineValue(li,VISIBLE_AREA,sec)};
 };
 function __pluNoteFrame(rt,n,sec,st,w,h){
-  const rawNoteScale=n.hasSize?rt.noteValue(n,SIZE,sec):NOTE_DEFAULTS[SIZE],noteScale=Math.abs(rawNoteScale);if(!Number.isFinite(noteScale)||noteScale*st.scale<=1e-9)return null;const noteRot=(n.hasRot?rt.noteValue(n,ROTATION,sec):0)+(rawNoteScale<0?180:0),finalFlow=n.hasFlow?rt.noteValue(n,FLOW,sec):st.flow,curT=Math.min(sec,n.endSec),curFloor=rt.lineValue(n.lineIdx,SPEED,curT);
-  let floorHead=(n.floorStart-curFloor)*finalFlow*SPEED_UNIT*(state.flowSpeed||1.66),floorTail=(n.floorEnd-curFloor)*finalFlow*SPEED_UNIT*(state.flowSpeed||1.66);if(sec>=n.startSec)floorHead=0;
+  const rawNoteScale=n.hasSize?rt.noteValue(n,SIZE,sec):NOTE_DEFAULTS[SIZE],noteScale=Math.abs(rawNoteScale);if(!Number.isFinite(noteScale)||noteScale*st.scale<=1e-9)return null;const noteRot=(n.hasRot?rt.noteValue(n,ROTATION,sec):0)+(rawNoteScale<0?180:0),finalFlow=n.hasFlow?rt.noteValue(n,FLOW,sec):st.flow;
+  /* A tap/drag continues through the judgement line during its 160 ms fade-out.
+     Treating its start time as its terminal floor (and then pinning floorHead to
+     zero) froze it on top of the line instead. Holds are different: their head is
+     deliberately anchored to the line while their tail contracts, and their floor
+     must freeze once the hold has ended. */
+  const curFloor=n.isHold&&sec>n.endSec?n.floorEnd:st.floor;
+  let floorHead=(n.floorStart-curFloor)*finalFlow*SPEED_UNIT*(state.flowSpeed||1.66),floorTail=(n.floorEnd-curFloor)*finalFlow*SPEED_UNIT*(state.flowSpeed||1.66);if(n.isHold&&sec>=n.startSec)floorHead=0;
   let alpha=(n.hasTrans?clamp(rt.noteValue(n,TRANSPARENCY,sec),0,1):1)*st.wholeAlpha;if(Number.isFinite(st.visible)&&floorHead>st.visible)alpha=0;
   const posY=n.hasPosY?rt.noteValue(n,POS_Y,sec):0;if(n.hasPosY){floorTail-=floorHead;floorHead=posY;floorTail+=floorHead}
   const baseX=(n.hasPosX?rt.noteValue(n,POS_X,sec):0)+(n.hasRelX?rt.noteValue(n,REL_X,sec):0),baseY=n.hasRelY?rt.noteValue(n,REL_Y,sec):0,center=applyLineWorld(st,w,h,baseX,baseY+floorHead),tail=applyLineWorld(st,w,h,baseX,baseY+floorTail),visualW=(w+h)*NOTE_SIZE*NOTE_SCALE*(state.noteScale||1)*st.scale*noteScale;
@@ -206,9 +217,8 @@ function __pluNoteFrame(rt,n,sec,st,w,h){
  * on-screen false positives. */
 function __pluNoteStaticCull(rt,n,sec,st,w,h){
   if(n.isHold||n.hasPosX||n.hasPosY||n.hasRelX||n.hasRelY||n.hasFlow)return false;
-  const curT=Math.min(sec,n.endSec),curFloor=rt.lineValue(n.lineIdx,SPEED,curT);
+  const curFloor=st.floor;
   let floorHead=(n.floorStart-curFloor)*(st.flow||0)*SPEED_UNIT*(state.flowSpeed||1.66);
-  if(sec>=n.startSec)floorHead=0;
   if(!Number.isFinite(floorHead))return false;
   const sx=0,sy=-floorHead*(h/MIL_HEIGHT)*st.scale,a=st.angle*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
   const cx=st.center.x+(sx*c-sy*s),cy=st.center.y+(sx*s+sy*c);
@@ -274,7 +284,7 @@ function __pluDrawParticles(rt,n,sec,st,w,h){
 }
 
 const __pluTransformLineReference=transformLine;
-transformLine=function(rt,li,sec,w,h){const st=__pluTransformLineReference(rt,li,sec,w,h);if(!state.referenceMode){const tr=rt.events.get(BEARER_LINE)?.get(li)?.get(VISIBLE_AREA);let v=tr?rt.lineValue(li,VISIBLE_AREA,sec):Math.hypot(1920,1080)*1.5;if(Math.abs(v)<100)v*=1080;st.visible=v}return st};
+transformLine=function(rt,li,sec,w,h){return __pluTransformLineReference(rt,li,sec,w,h)};
 
 /* Rendering parameters are fixed; no debug controls are exposed in the UI. */
 state.referenceMode=true;state.hitEffects=true;state.noteScale=1;state.flowSpeed=1.66;
@@ -283,7 +293,7 @@ window.__renderPortSelfTest=async function(){const fail=[],ok=(v,m)=>{if(!v)fail
     const overlap={bpms:[{start:0,bpm:120}],lines:[{notes:[]}],animations:[{bpmId:0,fromBeat:0,toBeat:2,key:0,fv:0,tv:20,data:0,i1:0,press:0,ease:0},{bpmId:0,fromBeat:1,toBeat:3,key:0,fv:100,tv:200,data:0,i1:0,press:0,ease:0}],storyboardObjects:[]},r=makeRuntime(overlap);ok(near(r.lineValue(0,POS_X,1.5),15),'overlap event cursor must keep first event until its end');ok(near(r.lineValue(0,POS_X,2.5),175),'cursor must advance after first event ends');
     const more=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{bpm:0,startTime:1,endTime:1,type:0,isFake:false,isAlwaysPerfect:false},{bpm:0,startTime:1+5e-7,endTime:1+5e-7,type:0,isFake:false,isAlwaysPerfect:false}]}],animations:[],storyboardObjects:[]});ok(more.notes.every(n=>!n.isMore),'simultaneous grouping must use exact double equality');
     const ce={bpms:[{start:0,bpm:120}],lines:[{notes:[]}],animations:[{bpmId:0,fromBeat:0,toBeat:1,key:0,fv:0,tv:1,data:0,i1:0,press:0,ease:0,isCustomEase:true,customEaseArr:[3,5,9]}],storyboardObjects:[]},cr=makeRuntime(ce);ok(near(cr.lineValue(0,POS_X,.5),5,1e-4),'customEaseArr interpolation');
-    ok(LINE_DEFAULTS[VISIBLE_AREA]===1e9,'VisibleArea default must match RainPlayer (1e9)');
+    ok(LINE_DEFAULTS[VISIBLE_AREA]===Math.hypot(1920,1080)*1.5,'VisibleArea uses Milthm chart coordinates');
   }catch(e){fail.push(e?.stack||String(e))}finally{state.referenceMode=oldMode}return{ok:fail.length===0,version:__RENDER_PORT_VERSION,sourceCommit:__RENDER_SOURCE_COMMIT,failures:fail}}
 
 /* Preserve legacy regression tests by running them with the previous compatibility

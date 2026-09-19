@@ -8,10 +8,7 @@ normalizeMilthm=function(raw){
 
 const __pluPrecomputeV2=precompute;
 precompute=function(rt){
-  __pluPrecomputeV2(rt);if(typeof markStageResize==='function')markStageResize();rt.__pluLayerNotes=[[],[],[]];rt.__pluActiveBuckets=[new Map(),new Map(),new Map()];
-  const dur=Math.max(0,Number(rt.duration)||0),bucketSec=1;rt.__pluBucketSec=bucketSec;
-  for(const n of rt.notes){const layer=noteLayer(n);rt.__pluLayerNotes[layer]?.push(n);let a=Number.isFinite(n.activeFrom)?Math.max(0,n.activeFrom):0,b=Number.isFinite(n.activeTo)?Math.min(dur,n.activeTo):dur;if(b<a)[a,b]=[b,a];const i0=Math.max(0,Math.floor(a/bucketSec)),i1=Math.max(i0,Math.floor(b/bucketSec));for(let i=i0;i<=i1;i++){let q=rt.__pluActiveBuckets[layer].get(i);if(!q)rt.__pluActiveBuckets[layer].set(i,q=[]);q.push(n)}}
-  rt.__pluNonHoldStarts=rt.notes.filter(n=>!n.isHold&&!n.isFake).sort((a,b)=>a.startSec-b.startSec);rt.__pluHolds=rt.notes.filter(n=>n.isHold&&!n.isFake).sort((a,b)=>a.startSec-b.startSec);
+  __pluPrecomputeV2(rt);if(typeof markStageResize==='function')markStageResize();  rt.__pluNonHoldStarts=rt.notes.filter(n=>!n.isHold&&!n.isFake&&n.type!==NOTE_FRACTURE).sort((a,b)=>a.startSec-b.startSec);rt.__pluHolds=rt.notes.filter(n=>n.isHold&&!n.isFake).sort((a,b)=>a.startSec-b.startSec);
   /* Particle bursts in dense drag sections are redrawn as independent ellipses every
    * frame, so bound the simultaneous work.  The stride is frozen per note from the local
    * emitter density (notes within a +/-0.5 s window) and applied by a stable per-note
@@ -19,15 +16,27 @@ precompute=function(rt){
    * full 8/10 sparks. */
   {
     const arr=rt.__pluNonHoldStarts;
-    for(let i=0;i<arr.length;i++){
-      const t=arr[i].startSec;let lo=i;while(lo>0&&arr[lo-1].startSec>=t-.5)lo--;let hi=i+1;while(hi<arr.length&&arr[hi].startSec<=t+.5)hi++;
+    let lo=0,hi=0;for(let i=0;i<arr.length;i++){
+      const t=arr[i].startSec;while(lo<i&&arr[lo].startSec<t-.5)lo++;while(hi<arr.length&&arr[hi].startSec<=t+.5)hi++;
       const active=hi-lo;arr[i].__pluParticleStride=active<=24?1:(active<=48?2:3);
     }
   }
   /* Active Hold hit-effects: avoid scanning every Hold from song start on every frame. */
-  rt.__pluHoldFxBuckets=new Map();for(const n of rt.__pluHolds){const i0=Math.floor(Math.max(0,n.startSec)),i1=Math.floor(Math.max(0,n.endSec+.5));for(let i=i0;i<=i1;i++){let q=rt.__pluHoldFxBuckets.get(i);if(!q)rt.__pluHoldFxBuckets.set(i,q=[]);q.push(n)}}
+  rt.__pluLongFxHolds=[];rt.__pluHoldFxBuckets=new Map();for(const n of rt.__pluHolds){const i0=Math.floor(Math.max(0,n.startSec)),i1=Math.floor(Math.max(0,n.endSec+.5));if(i1-i0>64){rt.__pluLongFxHolds.push(n);continue}for(let i=i0;i<=i1;i++){let q=rt.__pluHoldFxBuckets.get(i);if(!q)rt.__pluHoldFxBuckets.set(i,q=[]);q.push(n)}}
 };
-function __pluActiveNotesAt(rt,layer,sec){const b=rt.__pluActiveBuckets?.[layer];if(!b)return rt.__pluLayerNotes?.[layer]||[];return b.get(Math.floor(Math.max(0,sec)/(rt.__pluBucketSec||1)))||[]}
+// Balanced interval tree: one entry per note, independent of song duration.
+function __pluActiveNotesAt(rt,layer,sec){
+  if(!rt.__activeTrees)return rt.__pluLayerNotes?.[layer]||[];
+  const out=rt.__activeScratch[layer];out.length=0;
+  function visit(node){
+    if(!node||node.maxEnd<sec)return;
+    visit(node.left);
+    if(node.note.activeFrom<=sec){if(node.note.activeTo>=sec)out.push(node.note);visit(node.right)}
+  }
+  visit(rt.__activeTrees[layer]);
+  // Preserve authored draw order, including overlapping alpha sprites.
+  if(rt.chart?._rwc)out.sort((a,b)=>a.__drawOrder-b.__drawOrder);return out;
+}
 
 function __pluTweenGet(anim,time,combo){const p=clamp((time-anim.last)/.15,0,1);return combo?1+.07*Math.sin(p*Math.PI):anim.from+(anim.to-anim.from)*p}
 function __pluTweenSet(anim,time,target,combo){if(anim.to!==target){const current=__pluTweenGet(anim,time,combo);anim.from=combo?1:current;anim.to=target;anim.last=time}return __pluTweenGet(anim,time,combo)}
@@ -45,7 +54,7 @@ render=function(){
   if(rt){const sec=clamp(state.currentTime,0,rt.duration),play=state.appMode==='play';ctx.save();ctx.translate(state.panX,state.panY);ctx.scale(state.viewScale,state.viewScale);const lineStates=[];for(let li=0;li<rt.lineCount;li++)lineStates.push(transformLine(rt,li,sec,w,h));
     /* Layer order follows Pluviora src/pluviora.cpp:2139-2153 (MIT): foreground
        follows gameplay, then HUD. Picture rendering itself is absent in Pluviora. */
-    drawStoryboardLayer(rt,0,sec,w,h);drawBackgroundDim(w,h);drawStoryboardLayer(rt,1,sec,w,h);for(const st of lineStates)drawLineState(st,w,h);
+    drawStoryboardLayer(rt,0,sec,w,h);drawBackgroundDim(w,h);drawStoryboardLayer(rt,1,sec,w,h);
     const nonholds=rt.__pluNonHoldStarts||[],nhStart=__pluLowerByStart(nonholds,sec-.5);for(let i=nhStart;i<nonholds.length&&nonholds[i].startSec<=sec;i++)__pluDrawHitRing(rt,nonholds[i],sec,lineStates[nonholds[i].lineIdx],w,h);
     const holds=rt.__pluHolds||[],hRingStart=__pluLowerByStart(holds,sec-.5);for(let i=hRingStart;i<holds.length&&holds[i].startSec<=sec;i++)__pluDrawHitRing(rt,holds[i],sec,lineStates[holds[i].lineIdx],w,h);
     /* Manual judgement effects are incremental active entries, analogous to RainPlayer's
@@ -53,7 +62,14 @@ render=function(){
     window.__gpDrawManualEffects?.(rt,sec,w,h,lineStates);
     for(let i=nhStart;i<nonholds.length&&nonholds[i].startSec<=sec;i++)__pluDrawParticles(rt,nonholds[i],sec,lineStates[nonholds[i].lineIdx],w,h);
     const fxHolds=rt.__pluHoldFxBuckets?.get(Math.floor(Math.max(0,sec)))||[];for(const n of fxHolds)if(n.startSec<=sec&&n.endSec+.5>=sec)__pluDrawParticles(rt,n,sec,lineStates[n.lineIdx],w,h);
+    for(const n of rt.__pluLongFxHolds||[])if(n.startSec<=sec&&n.endSec+.5>=sec)__pluDrawParticles(rt,n,sec,lineStates[n.lineIdx],w,h);
     for(let layer=0;layer<3;layer++)for(const n of __pluActiveNotesAt(rt,layer,sec)){if(n.activeFrom<=sec&&n.activeTo>=sec)drawNote(rt,n,sec,lineStates[n.lineIdx],w,h)}
+    /* The judgement line is the visual endpoint of the note path.  It must be
+       composited over notes so that, at contact, the line visibly cuts through
+       the note instead of disappearing behind its opaque centre.  Hit effects
+       are intentionally emitted before this pass as well: the thin line remains
+       readable at the exact contact frame, matching the reference capture. */
+    for(const st of lineStates)drawLineState(st,w,h);
     drawStoryboardLayer(rt,2,sec,w,h);
     ctx.restore();drawCombo(rt,sec,w,h);if(!play){state.visibleHit=state.visibleHit.map(v=>({...v,...chartToScreen(v.x,v.y),cx:v.x,cy:v.y,r:v.r*state.viewScale}));state.inspectHit=state.inspectHit.map(screenMapHit)}else{state.visibleHit.length=0;state.inspectHit.length=0}}
   drawOverlay(w,h);

@@ -28,8 +28,8 @@ async function enter(){
   /* Chromium can lock Escape while fullscreen. This makes first Escape a gameplay
      pause key; long/system Escape remains available to the browser. */
   if(isNative())try{await navigator.keyboard?.lock?.(['Escape'])}catch{}
-  let locked=false;try{await screen.orientation?.lock?.('landscape');locked=true}catch{}
-  if(!locked&&matchMedia('(orientation:portrait)').matches)wrap.classList.add('nativeLandscapeFallback');
+  // Use the actual screen ratio, including portrait and ultrawide screens.
+  await unlockOrientation();
   requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()});
 }
 window.__gpLeaveGameplayFullscreen=leave;window.__gpEnterGameplayFullscreen=enter;window.__gpGameplayFullscreenActive=()=>isNative()||isFallback();
@@ -43,10 +43,7 @@ function sync(){
     if((Number(window.__gpEscPauseGuardUntil)||0)>performance.now())wrap.classList.add('nativePlayFullscreen');
     else{wrap.classList.remove('nativeLandscapeFallback');unlockKeyboard();unlockOrientation();try{window.__gpHideResult?.(true)}catch{}}
   }
-  if(isNative()||isFallback()){
-    if(matchMedia('(orientation:portrait)').matches){if(screen.orientation?.type?.startsWith?.('portrait'))wrap.classList.add('nativeLandscapeFallback')}
-    else wrap.classList.remove('nativeLandscapeFallback');
-  }
+  if(isNative()||isFallback())wrap.classList.remove('nativeLandscapeFallback');
   requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()})
 }
 document.addEventListener('fullscreenchange',sync);document.addEventListener('webkitfullscreenchange',sync);window.addEventListener('orientationchange',sync,{passive:true});window.addEventListener('resize',()=>{if(isNative()||isFallback())sync()},{passive:true});

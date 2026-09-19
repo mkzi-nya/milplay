@@ -161,6 +161,8 @@ async function setBackgroundFile(file){
   }
   if(state.bgUrl!==url)return;
   state.backgroundImage=img;
+  /* Fullscreen letterbox uses the same package artwork, never a separate guessed image. */
+  els.stageWrap?.style.setProperty('--mil-stage-art',`url("${url.replace(/"/g,'%22')}")`);
   updateControls();
   render();
 }
@@ -296,6 +298,7 @@ const __MIL_VALID_ANIMATION_KEYS = new Map([
  * logical operators and ternaries while rejecting assignments, member access and code
  * construction.  This is deliberately broader than the old arithmetic-only parser and
  * still deterministic inside the renderer. */
+const __milExpressionFunctions=new Map();
 function evalExpr(expr,vars={}){
   if(typeof expr!=='string')return NaN;
   let source=expr.trim();if(!source)return NaN;
@@ -312,7 +315,12 @@ function evalExpr(expr,vars={}){
   if(names.some(name=>!allowed.has(name)))return NaN;
   const clampFn=(v,a,b)=>Math.min(Math.max(v,a),b),lerpFn=(a,b,t)=>a+(b-a)*t;
   try{
-    const fn=Function('pi','e','t','x','y','sin','cos','tan','asin','acos','atan','atan2','sqrt','cbrt','abs','min','max','pow','floor','ceil','round','trunc','exp','log','log10','log2','sign','hypot','clamp','lerp','"use strict";return ('+source+')');
+    let fn=__milExpressionFunctions.get(source);
+    if(!fn){
+      fn=Function('pi','e','t','x','y','sin','cos','tan','asin','acos','atan','atan2','sqrt','cbrt','abs','min','max','pow','floor','ceil','round','trunc','exp','log','log10','log2','sign','hypot','clamp','lerp','"use strict";return ('+source+')');
+      if(__milExpressionFunctions.size>=512)__milExpressionFunctions.delete(__milExpressionFunctions.keys().next().value);
+      __milExpressionFunctions.set(source,fn);
+    }
     const out=fn(Math.PI,Math.E,vars.t??0,vars.x??0,vars.y??0,Math.sin,Math.cos,Math.tan,Math.asin,Math.acos,Math.atan,Math.atan2,Math.sqrt,Math.cbrt,Math.abs,Math.min,Math.max,Math.pow,Math.floor,Math.ceil,Math.round,Math.trunc,Math.exp,Math.log,Math.log10,Math.log2,Math.sign,Math.hypot,clampFn,lerpFn);
     return Number(out);
   }catch{return NaN}
@@ -476,17 +484,23 @@ function makeRuntime(chart,fileName='chart.json'){
   }
   const order=Array.isArray(chart._note_create_order)?chart._note_create_order:[];let animGlobals=[];
   if(order.length){
-    const lookup=new Map(tmp.map(it=>[it.lineIdx+':'+it.localIdx,it.globalIdx]));
-    for(const p of order){if(Array.isArray(p)){const got=lookup.get(int(p[0],0)+':'+int(p[1],0));if(got!=null&&!animGlobals.includes(got))animGlobals.push(got)}}
+    const lookup=new Map(tmp.map(it=>[it.lineIdx+':'+it.localIdx,it.globalIdx])),seen=new Set();
+    for(const p of order){if(Array.isArray(p)){const got=lookup.get(int(p[0],0)+':'+int(p[1],0));if(got!=null&&!seen.has(got)){seen.add(got);animGlobals.push(got)}}}
   }
   if(animGlobals.length!==tmp.length)animGlobals=tmp.map(x=>x.globalIdx);
   const byG=new Map(animGlobals.map((id,i)=>[id,i]));
+  const lineCache=[];
   const runtime={
     chart,fileName,meta:chart.meta||{},timeline,noteMode,animMode,events,lineCount:chart.lines.length,
     notes:tmp.map(it=>({...it,animIdx:byG.get(it.globalIdx)??it.globalIdx})),
     storyboards:(chart.storyboardObjects||chart.storyboards||[]).map((s,i)=>({type:int(s.type,0),data:String(s.data||''),layer:int(s.layer,1),index:i,distorted:[...SB_DISTORT_KEYS].some(k=>events.get(BEARER_SB)?.get(i)?.has(k))})),
     duration:5,comboTimes:[],
-    lineValue(li,key,sec){const tr=events.get(BEARER_LINE)?.get(li)?.get(key);return evalTrack(tr,sec,LINE_DEFAULTS[key]??0,key)},
+    lineValue(li,key,sec){
+      let cache=lineCache[li];if(!cache)cache=lineCache[li]={times:new Float64Array(24).fill(NaN),values:new Float64Array(24)};
+      if(cache.times[key]===sec)return cache.values[key];
+      const tr=events.get(BEARER_LINE)?.get(li)?.get(key),value=evalTrack(tr,sec,LINE_DEFAULTS[key]??0,key);
+      cache.times[key]=sec;cache.values[key]=value;return value;
+    },
     noteValue(n,key,sec){
       if(!__MIL_VALID_ANIMATION_KEYS.get(BEARER_NOTE).has(key))return key===FLOW?this.lineValue(n.lineIdx,FLOW,sec):(NOTE_DEFAULTS[key]??0);
       const tr=events.get(BEARER_NOTE)?.get(n.animIdx)?.get(key),def=key===FLOW?this.lineValue(n.lineIdx,FLOW,sec):(NOTE_DEFAULTS[key]??0);
@@ -550,9 +564,9 @@ function drawNote(rt,n,sec,st,w,h){
   if(n.isHold&&sec>n.endSec)noteAlpha*=Math.max(0,1-(sec-n.endSec)/HOLD_DISAPPEAR_TIME);
   if(!n.isHold&&sec>n.startSec)noteAlpha*=Math.max(0,1-(sec-n.startSec)/NOTE_DISAPPEAR_TIME);
   if(noteAlpha<=.001)return;
-  const finalFlow=n.hasFlow?rt.noteValue(n,FLOW,sec):st.flow,curT=Math.min(sec,n.endSec),curFloor=rt.lineValue(n.lineIdx,SPEED,curT);
+  const finalFlow=n.hasFlow?rt.noteValue(n,FLOW,sec):st.flow,curT=n.isHold?Math.min(sec,n.endSec):sec,curFloor=rt.lineValue(n.lineIdx,SPEED,curT);
   let floorHead=(n.floorStart-curFloor)*finalFlow*SPEED_UNIT*FLOW_SPEED,floorTail=n.isHold?(n.floorEnd-curFloor)*finalFlow*SPEED_UNIT*FLOW_SPEED:floorHead;
-  if(sec>=n.startSec)floorHead=0;
+  if(n.isHold&&sec>=n.startSec)floorHead=0;
   const posY=n.hasPosY?rt.noteValue(n,POS_Y,sec):0;
   if(n.hasPosY){if(n.isHold)floorTail=floorTail-floorHead+posY;else floorTail=posY;floorHead=posY}
   const baseX=(n.hasPosX?rt.noteValue(n,POS_X,sec):0)+(n.hasRelX?rt.noteValue(n,REL_X,sec):0),baseY=n.hasRelY?rt.noteValue(n,REL_Y,sec):0;
@@ -609,21 +623,21 @@ function normalizeMilthm(raw){
   return{meta,bpms,lines,animations,storyboardObjects:storyboards,_note_create_order:order,_milthm:true,_source:raw};
 };
 
-function milizeJsToJson(text){return new Promise((resolve,reject)=>{
+function milizeJsToJson(text,environment=null){return new Promise((resolve,reject)=>{
   const token='js2json_'+Math.random().toString(36).slice(2),iframe=document.createElement('iframe');iframe.sandbox='allow-scripts';iframe.style.display='none';
   const source=String(text).replace(/<\/script/gi,'<\\/script');
   let localeLanguage='en',localeRegion='US',localeScript='Latn';
   try{const loc=new Intl.Locale(navigator.language||'en').maximize();localeLanguage=loc.language||'en';localeRegion=loc.region||'US';localeScript=loc.script||'Latn'}catch{}
-  /* Chart source queries these at parse time; they must be the fixed Milthm design
-   * stage (documented 1920x1080), not the live canvas backing store, or parsing would
-   * depend on viewport/DPR and produce different chart coordinates per device. */
+  // Stage dimensions are CSS pixels, independent of the render-quality/DPR budget.
+  const stageRect=els.stage.getBoundingClientRect(),rotated=els.stageWrap?.classList.contains('nativeLandscapeFallback')&&matchMedia('(orientation:portrait)').matches;
+  const stageW=Math.max(1,Number(rotated?els.stage.clientWidth:stageRect.width)||1920),stageH=Math.max(1,Number(rotated?els.stage.clientHeight:stageRect.height)||1080);
   const envValues={
-    "stage.width":"1920","stage.height":"1080",
-    "system.screen_width":"1920","system.screen_height":"1080",
-    "user.note_scale":"1","user.flow_speed":"1","user.name":"","user.nickname":"",
+    "stage.width":String(stageW),"stage.height":String(stageH),
+    "system.screen_width":String(screen.width||stageW),"system.screen_height":String(screen.height||stageH),
+    "user.note_scale":String(state.noteScale||1),"user.flow_speed":String(state.flowSpeed||1),"user.name":"","user.nickname":"",
     "user.culture.bcp47":navigator.language||"en","user.culture.ieft_label":navigator.language||"en","user.culture.ietf_label":navigator.language||"en",
     "user.culture.language":localeLanguage,"user.culture.region":localeRegion,"user.culture.script":localeScript,
-    "time":String(Date.now())
+    "time":String(Date.now()),...environment
   };
   iframe.srcdoc=`<!doctype html><meta charset="utf-8"><script>(()=>{
     const token=${JSON.stringify(token)},rawSource=${JSON.stringify(source)},ENV=${JSON.stringify(envValues)};
@@ -678,7 +692,7 @@ function milizeJsToJson(text){return new Promise((resolve,reject)=>{
   })();<\/script>`;
   const timeoutMs=Math.min(60000,Math.max(4000,4000+source.length*.025));
   const timer=setTimeout(()=>done(false,null,new Error('JS 转 JSON 超时（'+Math.round(timeoutMs/1000)+'s）')),timeoutMs);
-  function done(ok,chart,err){clearTimeout(timer);window.removeEventListener('message',onmsg);iframe.remove();ok?resolve(chart):reject(err)}
+  function done(ok,chart,err){clearTimeout(timer);window.removeEventListener('message',onmsg);iframe.remove();if(ok){Object.defineProperties(chart,{_jsSource:{value:String(text)},_jsEnvironment:{value:envValues}});resolve(chart)}else reject(err)}
   function onmsg(ev){const d=ev.data||{};if(d.token!==token)return;d.ok?done(true,d.chart):done(false,null,new Error(d.error||'JS 转 JSON 失败'))}
   window.addEventListener('message',onmsg);document.body.appendChild(iframe);
 })};
@@ -827,7 +841,7 @@ function __milAssetUrl(ref){
   if(!u){u=URL.createObjectURL(f);state.assetObjectUrls.set(key,u)}return u;
 }
 function __milClearBackground(){
-  if(state.bgUrl)try{URL.revokeObjectURL(state.bgUrl)}catch{}state.bgUrl='';state.bgName='';state.backgroundImage=null;updateControls();render();
+  if(state.bgUrl)try{URL.revokeObjectURL(state.bgUrl)}catch{}state.bgUrl='';state.bgName='';state.backgroundImage=null;els.stageWrap?.style.removeProperty('--mil-stage-art');updateControls();render();
 }
 function __milClearMedia(){
   const media=els.audioPlayer;media.pause();if(state.mediaUrl)try{URL.revokeObjectURL(state.mediaUrl)}catch{}state.mediaUrl='';state.mediaName='';state.mediaReady=false;media.removeAttribute('src');media.load();updateControls();
@@ -955,7 +969,9 @@ normalizeMilthm = function(raw){
 /* Legacy v3 LineList X/Y/Rotation/FlowSpeed are initial line properties, not metadata. */
 const __milMakeRuntimeBeforeFullReview = makeRuntime;
 makeRuntime = function(chart,fileName='chart.json'){
-  const rt=__milMakeRuntimeBeforeFullReview(chart,fileName),baseLineValue=rt.lineValue.bind(rt);
+  const rt=__milMakeRuntimeBeforeFullReview(chart,fileName);
+  if(!chart.lines.some(line=>line._legacyDefaults&&Object.keys(line._legacyDefaults).length))return rt;
+  const baseLineValue=rt.lineValue.bind(rt);
   rt.lineValue=function(li,key,sec){
     const custom=chart.lines?.[li]?._legacyDefaults?.[key];if(custom==null)return baseLineValue(li,key,sec);
     const tr=this.events.get(BEARER_LINE)?.get(li)?.get(key);return evalTrack(tr,sec,Number(custom),key);

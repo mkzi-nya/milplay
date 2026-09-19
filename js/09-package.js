@@ -85,7 +85,11 @@ __milPersistReferencedAssets=async function(chart,chartName,bgFile,mediaFile){
 
 function __pkgResolveCurrentAsset(ref){if(!ref)return null;try{if(typeof __milResolveAssetFileBeforeUploadedLibrary==='function')return __milResolveAssetFileBeforeUploadedLibrary(ref,state.assetBaseDir||'')}catch{}return null}
 function __pkgPickBackground(files,ref){
-  if(ref){const f=__pkgResolveCurrentAsset(ref);if(f)return f}
+  /* Unity packages often leave IllustrationFile empty while the player still uses the
+     package's cover (Algebra is one such chart). Resolve a non-empty reference first,
+     then use the same deterministic cover/background candidate fallback for both empty
+     and absent metadata; authored black/storyboard masks decide cinematic darkening. */
+  if(ref!=null&&String(ref).trim()){const f=__pkgResolveCurrentAsset(ref);if(f)return f}
   const all=__pkgSorted((files||[]).filter(f=>__milIsImageName(f.name))),outside=all.filter(f=>!__pkgIsStoryboardPath(f.name));
   const pool=outside.length?outside:all;return pool.find(f=>/(?:^|[-_. ])(?:illustration|background|cover|bg)(?:[-_. ]|$)/i.test(__pkgBase(f.name)))||pool[0]||null;
 }

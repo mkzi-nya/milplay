@@ -59,10 +59,10 @@ test('桥接：打包后方法别名任意命名也能识别（Sky Islands 形�
   assert.equal(r.chart.meta.Title,'x');
 });
 
-test('桥接：env 返回固定的 1920/1080 预览值字符串',async()=>{
+test('桥接：env 返回实际舞台尺寸字符串，不随 DPR 改变',async()=>{
   const r=await parseSource('m.withProperty("w",m.env("stage.width"));m.withProperty("h",m.env("stage.height"));m.withProperty("nope",m.env("missing.key"));m.timing(0,120,4);m.line();');
-  assert.equal(r.chart.meta.w,'1920');
-  assert.equal(r.chart.meta.h,'1080');
+  assert.equal(r.chart.meta.w,'1280');
+  assert.equal(r.chart.meta.h,'720');
   assert.equal(r.chart.meta.nope,'');
 });
 

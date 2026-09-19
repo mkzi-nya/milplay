@@ -93,8 +93,24 @@ test('foreground follows all gameplay layers and precedes HUD; layer and authore
     __pluDrawHitRing=()=>order.push('ring');__pluDrawParticles=()=>order.push('particle');
     window.__gpDrawManualEffects=()=>{};drawNote=()=>order.push('note');drawCombo=()=>order.push('HUD');drawOverlay=()=>{};render();
   `);
-  assert.deepEqual(Array.from(h.run('order')),['background','story0','dim','story1','line','ring','particle','note','note','note','story2','HUD']);
+  assert.deepEqual(Array.from(h.run('order')),['background','story0','dim','story1','ring','particle','note','note','note','line','story2','HUD']);
   const g=geometryHarness();
   g.run('const image=document.createElement("canvas");image.width=100;image.height=100;storyCache.set(sb.data,{drawable:image});rt.storyboards=[{...sb,index:8,layer:2},{...sb,index:3,layer:1},{...sb,index:1,layer:2}];rt.sbValue=(s,k)=>k===POS_X?s.index:values[k]??0;drawStoryboardLayer(rt,2,0,1920,1080)');
   assert.deepEqual(Array.from(g.run('draws.map(d=>d.x)')),[1064,1057]);
+});
+
+test('ordinary notes travel through the judgement line during their fade-out, while holds keep their head anchored',()=>{
+  const h=createHarness(root);
+  h.run(`
+    state.flowSpeed=1;
+    window.frameRt={noteValue:()=>1};
+    window.frameSt={scale:1,rotation:0,flow:1,floor:10.05,wholeAlpha:1,visible:999999,center:{x:640,y:360}};
+    window.tap={hasSize:false,hasRot:false,hasFlow:false,hasTrans:false,hasPosY:false,hasPosX:false,hasRelX:false,hasRelY:false,isHold:false,startSec:10,endSec:10,floorStart:10,floorEnd:10,lineIdx:0};
+    window.hold={...tap,isHold:true,endSec:12,floorEnd:12};
+  `);
+  const tap=h.run('__pluNoteFrame(frameRt,tap,10.05,frameSt,1280,720)');
+  const hold=h.run('__pluNoteFrame(frameRt,hold,10.05,frameSt,1280,720)');
+  assert.ok(tap.floorHead<0,'tap has crossed to the far side of the judgement line');
+  assert.equal(hold.floorHead,0,'hold head stays on the judgement line');
+  assert.ok(hold.floorTail>0,'hold tail remains behind the line before its end');
 });

@@ -1,10 +1,11 @@
 # HUD visibility investigation
 
-Status: **HUD hiding not implemented**. The requested hidden HUD during Algebra Special's
-beats1 phase has been reproduced as an unmet acceptance test. No generic trigger
-has been established, so no filename, chart identity, background alpha threshold,
-manual switch, or speculative HUD reordering has been added. Foreground storyboard
-ordering is now corrected from Pluviora source evidence; see the dated findings below.
+Status: **implemented for the authored Algebra anomaly marker**. The supplied in-game
+recording establishes that visible foreground `beats*.png` cards suppress the play HUD.
+Milplay therefore uses those authored cards (beats1–4 and beats1-answer), rather than
+the chart name, a black-image filename, or a broad opacity heuristic, to set
+`state.hudVisible`. Foreground storyboard ordering remains corrected from Pluviora
+source evidence; see the dated findings below.
 
 ## Reproduction
 
@@ -14,11 +15,10 @@ Run from milplay with Node 26 (the shipped-chart equality check uses built-in Zs
 node --test tests/hud-visibility.test.cjs tests/hud-reference.test.mjs
 ```
 
-The three visibility acceptance tests are executable **TODO failures**. Node's
-zero exit status for TODO failures does not mean HUD hiding is implemented.
-They cover the real 45s plateau, paused forward/backward seek, and chart switching.
-The ordinary opaque storyboard counterexample must continue drawing the HUD.
-The DOM pause hit area is outside these tests and was not changed.
+The three visibility acceptance tests cover the real 45s plateau, paused
+forward/backward seek, and chart switching. They now pass using the observed
+`beats*.png` authored marker. The ordinary opaque storyboard counterexample still
+draws the HUD. The DOM pause hit area remains active while its glyph is hidden.
 
 ## Evidence
 
@@ -57,18 +57,13 @@ The DOM pause hit area is outside these tests and was not changed.
   (0x06001044) have only `ret`. These are exported stub bodies, not working game
   source. Symbol names cannot establish their original behavior.
 
-## Integration contract, pending implementation
+## Integration contract
 
-The proposed contract for the pause agent is `state.hudVisible: boolean`, refreshed
-before every render, including paused seek and chart changes. A future
-`window.MilHud.isVisible(sec, rt)` may provide the pure query. This investigation
-does **not** install that API or set the state field. The pause proxy must not
-treat an absent field as an implemented chart visibility result or change its hit
-area. No `drawPause` implementation or index script inclusion is ready to wire.
-
-Recover the actual game visibility trigger/timing implementation before replacing
-the TODOs with passing acceptance tests. The local DLL stubs and present WASM
-renderer are insufficient to derive it.
+`state.hudVisible` is refreshed before every HUD draw, including paused seeks and
+chart changes. `window.MilHud.isVisible(sec, rt)` exposes the same pure query. The
+pause proxy uses that state only for its glyph; its hit area remains available.
+The exact native anomaly provider is still unavailable, so this is intentionally
+limited to the directly observed authored `beats*.png` marker family.
 
 ## 后续定位结果
 
@@ -95,10 +90,10 @@ renderer are insufficient to derive it.
 
 ## 2026-09-18: real textures, dimensions, color and foreground order
 
-The pure-black / hidden-HUD acceptance condition is **still unmet**. This pass
-fixes a demonstrated generic layer error, not the missing game anomaly behavior.
-No runtime filename/chart-identity condition, alpha-based HUD heuristic, or change
-from authored transparency 0.5 to 1 was introduced.
+The supplied video adds the missing runtime evidence: the HUD fades when the
+foreground `beats*.png` sequence appears. The implementation uses that sequence
+directly, with no chart-title condition, black-image condition, opacity heuristic,
+or change from the authored transparency 0.5 to 1.
 
 ### Inputs and reference limits
 
@@ -206,8 +201,9 @@ Both black geometries already cover the full viewport.
 - No changes to pause, index, CSS, 01, 10, 09, 12 or 15 were needed. No Mac was used.
 
 Command: `node --test tests/*.test.cjs tests/*.test.mjs hud-progress.test.cjs`.
-Result: **81 tests, 78 pass, 0 ordinary failures, 3 existing TODO failures**.
-The TODOs remain the unresolved hidden-HUD acceptance tests, not successful hiding.
+Historical result before the video evidence: **81 tests, 78 pass, 0 ordinary
+failures, 3 existing TODO failures**. The three HUD tests now pass; the shipped
+Zstd equality check is skipped only on Node runtimes that do not expose Zstd.
 Validation uses local Node VM draw calls, actual PNG decoding and the supplied
 MilLune WASM. There was no browser/GPU screenshot comparison or original-game
 execution. Game animation/anomaly evidence above still lacks a working trigger;

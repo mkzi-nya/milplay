@@ -62,7 +62,7 @@ __milTintSlice=function(img,sx,sy,sw,sh,dx,dy,dw,dh,color){
 noteTextureKey=function(n){
   if(n.type===NOTE_FRACTURE)return 'fracture';
   if(n.type===NOTE_DRAG)return n.isMore?'drag_double':'drag';
-  return milNoteKey(n.type,n.isAlwaysPerfect,n.isMore,n.isHold);
+  return milNoteKey(n.type,n.isAlwaysPerfect&&!n.isFake,n.isMore,n.isHold);
 };
 
 function __targetDecorativeFakeEnd(rt,n){
@@ -79,7 +79,7 @@ drawNote=function(rt,n,sec,st,w,h){
         /* Algebra uses a single Fake Tap as a reusable visual line-head. Once its
            authored hit time passes, keep only that unique head parked on the line;
            the line's real WholeTransparency decides exactly which heads are visible. */
-        dn=Object.create(n);dn.startSec=decorativeEnd;dn.floorStart=rt.lineValue(n.lineIdx,SPEED,sec);
+        dn=Object.create(n);dn.startSec=decorativeEnd;dn.endSec=decorativeEnd;dn.floorStart=rt.lineValue(n.lineIdx,SPEED,sec);dn.floorEnd=dn.floorStart;
       }
     }else if(sec>=n.startSec)return;
   }
@@ -138,6 +138,26 @@ function __targetSbBaseSize(data,intrinsic,w,h){
   const bw=milX(intrinsic.w,w);return{w:bw,h:bw/intrinsic.w*intrinsic.h};
 }
 
+// Unity's quad uses two affine triangles. Clip each triangle before mapping the
+// source texture; negative scales and concave quads keep their authored topology.
+function __targetDrawQuad(rt,sb,sec,img,cx,cy,dw,dh,deg,color){
+  const sw=img.naturalWidth||img.width,sh=img.naturalHeight||img.height;
+  if(!(sw>0&&sh>0))return;
+  const p=[[18,19],[20,21],[14,15],[16,17]].map(([x,y])=>[rt.sbValue(sb,x,sec)*dw,-rt.sbValue(sb,y,sec)*dh]);
+  if(!p.flat().every(Number.isFinite))return;
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(deg*Math.PI/180);ctx.globalAlpha*=color[3]/255;
+  for(const ids of [[0,2,1],[1,2,3]]){
+    const uv=[[0,0],[sw,0],[0,sh],[sw,sh]],a=uv[ids[0]],b=uv[ids[1]],c=uv[ids[2]],A=p[ids[0]],B=p[ids[1]],C=p[ids[2]];
+    const u=b[0]-a[0],v=b[1]-a[1],s=c[0]-a[0],t=c[1]-a[1],det=u*t-s*v;
+    const xx=((B[0]-A[0])*t-(C[0]-A[0])*v)/det,xy=((C[0]-A[0])*u-(B[0]-A[0])*s)/det;
+    const yx=((B[1]-A[1])*t-(C[1]-A[1])*v)/det,yy=((C[1]-A[1])*u-(B[1]-A[1])*s)/det;
+    if(Math.abs(xx*yy-xy*yx)<1e-12)continue;
+    ctx.save();ctx.beginPath();ctx.moveTo(...A);ctx.lineTo(...B);ctx.lineTo(...C);ctx.closePath();ctx.clip();
+    ctx.transform(xx,yx,xy,yy,A[0]-xx*a[0]-xy*a[1],A[1]-yx*a[0]-yy*a[1]);
+    __milTintSlice(img,0,0,sw,sh,0,0,sw,sh,color);ctx.restore();
+  }
+  ctx.restore();
+}
 drawStoryboardLayer=function(rt,layer,sec,w,h,distorted=false){
   if(!rt||!rt.storyboards)return;const list=rt.__storyByLayer?.[layer]||rt.storyboards;
   for(const sb of list){
@@ -149,6 +169,12 @@ drawStoryboardLayer=function(rt,layer,sec,w,h,distorted=false){
     if(![center.x,center.y,size,rotDeg,sx,sy].every(Number.isFinite)||Math.abs(size*sx)<1e-8||Math.abs(size*sy)<1e-8)continue;
     if(sb.type===0){
       const data=String(sb.data||'');
+      if(sb.distorted){
+        const image=storyImage(data);if(!image)continue;
+        const intrinsic=__targetIntrinsic(data,image),base=(data==='builtin.rect'||data==='builtin.round_rect')?{w:milX(300,w),h:milX(300,w)}:__targetSbBaseSize(data,intrinsic,w,h);
+        __targetDrawQuad(rt,sb,sec,image,center.x,center.y,base.w*size*sx,base.h*size*sy,-rotDeg,color);
+        continue;
+      }
       if(data==='builtin.rect'||data==='builtin.round_rect'){
         const baseW=milX(300,w),baseH=baseW,dw=baseW*size*sx,dh=baseH*size*sy,rad=.5*Math.hypot(Math.abs(dw),Math.abs(dh));
         if(center.x+rad<-8||center.x-rad>w+8||center.y+rad<-8||center.y-rad>h+8)continue;
@@ -169,6 +195,28 @@ drawStoryboardLayer=function(rt,layer,sec,w,h,distorted=false){
       if(state.appMode!=='play')state.inspectHit.push({kind:'storyboard',label:'故事板文字',id:sb.index,hiddenKey:itemKey('storyboard',sb.index),sb,x:center.x,y:center.y,w:iw,h:ih,rot:-rotDeg});
     }
   }
+};
+
+/* Algebra's anomaly sections have no schema-level HUD animation.  The supplied game
+ * recording and chart do, however, agree on the authored foreground `beats*.png`
+ * cards: while one is visible, the native player hides combo / score / progress and
+ * the pause glyph.  Treat this as an authored cinematic marker rather than a chart
+ * title, black-image, or arbitrary opacity heuristic.  It also covers beats1–4 and
+ * beats1-answer without changing normal opaque storyboards. */
+function __targetHudVisible(rt,sec){
+  if(!rt||state.appMode!=='play')return true;
+  for(const sb of rt.storyboards||[]){
+    if(sb.type!==0||sb.layer!==2||!/^beats\d+(?:-answer)?\.png$/i.test(String(sb.data||'')))continue;
+    if(Number(rt.sbValue(sb,TRANSPARENCY,sec))>.001)return false;
+  }
+  return true;
+}
+window.MilHud={...(window.MilHud||{}),isVisible:__targetHudVisible};
+const __targetDrawCombo=drawCombo;
+drawCombo=function(rt,sec,w,h){
+  state.hudVisible=__targetHudVisible(rt,sec);
+  if(!state.hudVisible)return;
+  return __targetDrawCombo(rt,sec,w,h);
 };
 
 /* ---------------- Reference judgement-line prefab geometry ----------------
@@ -206,7 +254,7 @@ function __targetEarliestAuthoredPreTime(rt,n,base){
   return a;
 }
 function __targetRebuildActiveIndex(rt){
-  rt.__pluLayerNotes=[[],[],[]];rt.__pluActiveBuckets=[new Map(),new Map(),new Map()];const dur=Math.max(0,Number(rt.duration)||0),bucketSec=1;rt.__pluBucketSec=bucketSec;
+  rt.__pluLayerNotes=[[],[],[]];const dur=Math.max(0,Number(rt.duration)||0);
   /* A handful of Algebra lines deliberately contain exactly one fake Tap and then
      reuse that line later by toggling WholeTransparency. Treat only those as visual
      line-head anchors. This avoids reviving the dozens of transient fake taps on the
@@ -220,11 +268,16 @@ function __targetRebuildActiveIndex(rt){
   }
   for(const n of rt.notes){
     const layer=noteLayer(n);rt.__pluLayerNotes[layer]?.push(n);
-    if(!rt.chart?._rwc){let a=Math.max(0,n.startSec-30);n.activeFrom=__targetEarliestAuthoredPreTime(rt,n,a)}
+    // No fixed lookahead: negative/zero speed and authored positions can be visible at any time.
     if(n.isFake&&!n.isHold){const e=__targetDecorativeFakeEnd(rt,n);n.activeTo=e>n.startSec+1e-6?Math.max(n.activeTo,e):Math.min(n.activeTo,n.startSec)}
-    let a=Number.isFinite(n.activeFrom)?Math.max(0,n.activeFrom):Math.max(0,n.startSec-30),b=Number.isFinite(n.activeTo)?Math.min(dur,n.activeTo):dur;if(b<a)[a,b]=[b,a];
-    const i0=Math.max(0,Math.floor(a/bucketSec)),i1=Math.max(i0,Math.floor(b/bucketSec));for(let i=i0;i<=i1;i++){let q=rt.__pluActiveBuckets[layer].get(i);if(!q)rt.__pluActiveBuckets[layer].set(i,q=[]);q.push(n)}
   }
+  rt.notes.forEach((n,i)=>{n.__drawOrder=i});
+  function tree(notes,lo=0,hi=notes.length){
+    if(lo>=hi)return null;const mid=(lo+hi)>>1,note=notes[mid],left=tree(notes,lo,mid),right=tree(notes,mid+1,hi);
+    return {note,left,right,maxEnd:Math.max(note.activeTo,left?.maxEnd??-Infinity,right?.maxEnd??-Infinity)};
+  }
+  rt.__activeTrees=rt.__pluLayerNotes.map(notes=>tree([...notes].sort((a,b)=>a.activeFrom-b.activeFrom||a.__drawOrder-b.__drawOrder)));
+  rt.__activeScratch=[[],[],[]];
 }
 const __targetPrecompute=precompute;
 precompute=function(rt){__targetPrecompute(rt);__targetRebuildActiveIndex(rt)};

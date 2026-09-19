@@ -8,6 +8,9 @@ const GP_WINDOWS={Exact:.035,Perfect:.070,Great:.105,Good:.140,Bad:.155};
 const GP_ACC={Exact:1,Perfect:.9,Great:.6,Good:.3,Bad:.15,Miss:0};
 const GP_HIT_STATES=new Set(['Exact','Perfect','Great','Good']);
 const GP_STEP=1/120;
+// Compatibility policy: original DLL contains signatures only, not the temporal
+// predicate. Keep the provisional +/-50 ms lightning window explicit and isolated.
+const GP_LIGHTNING_WINDOW=.05;
 const GP_EL_COLORS={normal:[220,202,255],good:[122,233,197],bad:[255,0,0]};
 const gp={
   rt:null,entries:new Map(),touches:new Map(),combo:0,maxCombo:0,accSum:0,fullAcc:0,
@@ -59,9 +62,12 @@ function gpOrdinaryComboTimes(rt=state.runtime){const out=[];for(const n of rt?.
 function gpOrdinaryComboAt(sec){const a=gp.comboTimes||[];let lo=0,hi=a.length;while(lo<hi){const m=(lo+hi)>>1;if(a[m]<=sec)lo=m+1;else hi=m}return lo}
 function gpFresh(rt=state.runtime){
   gp.rt=rt;gp.entries=new Map();gp.touches.clear();gpKeys.clear();gp.combo=0;gp.maxCombo=0;gp.accSum=0;gp.fullAcc=0;gp.judgeSequence=[];
+  gp.lightning=(rt?.notes||[]).filter(n=>n.type===NOTE_FRACTURE&&!n.isFake).sort((a,b)=>a.startSec-b.startSec);
+  gp.lightningCursor=0;gp.lightningResults=new Map();gp.lightningPass=0;gp.lightningMiss=0;
   gp.comboTimes=gpOrdinaryComboTimes(rt);gp.cuts={Exact:0,Perfect:0,Great:0,Good:0,Bad:0,Miss:0};gp.allCombo=gp.comboTimes.length;
   gp.touchHoldEnd=0;gp.holdLasts=-1e9;gp.lastFixed=-GP_STEP;gp.indicatorBalls=[];gp.effectKeys=new Set();gp.noteByKey=new Map();gp.timeBuckets=new Map();
-  const span=GP_WINDOWS.Bad*2,bs=.25;gp.bucketSec=bs;for(const n of rt?.notes||[]){if(!gpOrdinary(n))continue;gp.noteByKey.set(n.key,n);const a=Math.max(0,n.startSec-span),b=(n.isHold?n.endSec:n.startSec)+span,i0=Math.floor(a/bs),i1=Math.floor(Math.max(a,b)/bs);for(let i=i0;i<=i1;i++){let q=gp.timeBuckets.get(i);if(!q)gp.timeBuckets.set(i,q=[]);q.push(n)}}
+  gp.longNotes=[];
+  const span=GP_WINDOWS.Bad*2,bs=.25;gp.bucketSec=bs;for(const n of rt?.notes||[]){if(!gpOrdinary(n))continue;gp.noteByKey.set(n.key,n);const a=Math.max(0,n.startSec-span),b=(n.isHold?n.endSec:n.startSec)+span,i0=Math.floor(a/bs),i1=Math.floor(Math.max(a,b)/bs);if(i1-i0>256){gp.longNotes.push(n);continue}for(let i=i0;i<=i1;i++){let q=gp.timeBuckets.get(i);if(!q)gp.timeBuckets.set(i,q=[]);q.push(n)}}
   for(const q of gp.timeBuckets.values())q.sort((a,b)=>a.startSec-b.startSec||a.globalIdx-b.globalIdx);
 }
 function gpAwardExactHead(n,e){
@@ -71,6 +77,7 @@ function gpAwardExactHead(n,e){
 function gpRebuildExactBefore(target){
   const rt=state.runtime;gpFresh(rt);target=clamp(Number(target)||0,0,rt?.duration||0);
   if(!rt){gp.lastFixed=target-GP_STEP;return}
+  while(gp.lightningCursor<gp.lightning.length&&gp.lightning[gp.lightningCursor].startSec<target){const n=gp.lightning[gp.lightningCursor++];gp.lightningResults.set(n.key,{result:'Pass',time:n.startSec});gp.lightningPass++}
   for(const n of rt.notes){
     if(!gpOrdinary(n)||!(n.startSec<target))continue;
     const e=gpEntry(n);gpAwardExactHead(n,e);
@@ -132,6 +139,8 @@ function gpIsHit(t,n,touch){
 function gpGetNotes(t,touch=null){
   const src=gp.timeBuckets?.get(Math.floor(Math.max(0,t)/(gp.bucketSec||.25)))||[],out=[];
   for(const n of src){if((!n.isHold&&n.startSec-GP_WINDOWS.Bad*2<=t&&t<=n.startSec+GP_WINDOWS.Bad*2)||(n.isHold&&n.startSec-GP_WINDOWS.Bad*2<=t&&t<=n.endSec+GP_WINDOWS.Bad*2))out.push(n)}
+  for(const n of gp.longNotes||[])if(n.startSec-GP_WINDOWS.Bad*2<=t&&t<=n.endSec+GP_WINDOWS.Bad*2)out.push(n);
+  if(gp.longNotes?.length)out.sort((a,b)=>a.startSec-b.startSec||a.globalIdx-b.globalIdx);
   /* Buckets are pre-sorted. Fixed updates do not need to allocate/sort at 120 Hz;
      only a real touch needs RainPlayer's <=20 ms distance tie-break. */
   if(touch!=null)out.sort((a,b)=>{if(Math.abs(a.startSec-b.startSec)>.020)return a.startSec-b.startSec;const pa=gpRelTouchPoint(t,a,touch),pb=gpRelTouchPoint(t,b,touch);return Math.hypot(pa.x,pa.y)-Math.hypot(pb.x,pb.y)});
@@ -164,7 +173,43 @@ function gpTouchStart(sig,p,isKey=false,eventTime=null){
   gpUpdateAt(t);
 }
 function gpTouchMove(sig,p,eventTime=null){if(!gpIsPlay()||gp.autoplay)return;const touch=gp.touches.get(sig);if(!touch)return;touch.x=p.x;touch.y=p.y;gpUpdateAt(eventTime==null?gpInputTime():Number(eventTime))}
-function gpTouchEnd(sig,p,eventTime=null){if(!gpIsPlay()||gp.autoplay)return;const touch=gp.touches.get(sig);if(touch&&p){touch.x=p.x;touch.y=p.y}gp.touches.delete(sig);gpUpdateAt(eventTime==null?gpInputTime():Number(eventTime))}
+function gpTouchEnd(sig,p,eventTime=null){if(!gpIsPlay()||gp.autoplay)return;const touch=gp.touches.get(sig);if(touch&&p){touch.x=p.x;touch.y=p.y}const t=eventTime==null?gpInputTime():Number(eventTime);gpLightningUpdate(t);gp.touches.delete(sig);gpUpdateAt(t)}
+function gpLightningHit(n,t,touch){
+  if(touch.isKey)return true;
+  const w=els.stage.width,h=els.stage.height,st=transformLine(gp.rt,n.lineIdx,t,w,h),f=__pluNoteFrame(gp.rt,n,t,st,w,h);
+  if(!f)return false;
+  // Fracture.prefab: BoxCollider offset (30,0), size (67.9715,6).
+  // fracture.asset: sprite width 236.84775 pixels, 59.122402 pixels/world unit.
+  const unit=f.visualW/(236.84775/59.122402),a=f.rotation*Math.PI/180;
+  const dx=touch.x-f.center.x,dy=touch.y-f.center.y;
+  const x=(dx*Math.cos(a)+dy*Math.sin(a))/unit,y=(-dx*Math.sin(a)+dy*Math.cos(a))/unit;
+  return Math.abs(x-30)<=67.9715/2&&Math.abs(y)<=3;
+}
+function gpLightningUpdate(t){
+  const notes=gp.lightning||[];
+  for(let i=gp.lightningCursor;i<notes.length&&notes[i].startSec-GP_LIGHTNING_WINDOW<=t;i++){
+    const n=notes[i];if(gp.lightningResults.has(n.key))continue;
+    let hit=false;
+    if(t<=n.startSec+GP_LIGHTNING_WINDOW)for(const touch of gp.touches.values())if(gpLightningHit(n,t,touch)){hit=true;break}
+    if(hit||t>n.startSec+GP_LIGHTNING_WINDOW){
+      gp.lightningResults.set(n.key,{result:hit?'Miss':'Pass',time:t});
+      if(hit){gp.lightningMiss++;gpCallback('Miss',0,t)}else gp.lightningPass++;
+    }
+  }
+  while(gp.lightningCursor<notes.length&&gp.lightningResults.has(notes[gp.lightningCursor].key))gp.lightningCursor++;
+}
+window.__gpLightningStats=function(sec=state.currentTime){
+  gpEnsure();const total=gp.lightning.length;
+  const passed=gp.autoplay?__pluLowerByStart(gp.lightning,sec+1e-9):gp.lightningPass;
+  return {total,passed,missed:gp.autoplay?0:gp.lightningMiss,pending:total-passed-(gp.autoplay?0:gp.lightningMiss)};
+};
+window.__gpRebindRuntime=function(rt){
+  const old=gp.rt,same=old&&old.notes.length===rt.notes.length&&old.notes.every((n,i)=>{const m=rt.notes[i];return n.key===m.key&&n.startSec===m.startSec&&n.endSec===m.endSec&&n.type===m.type&&n.isFake===m.isFake&&n.isAlwaysPerfect===m.isAlwaysPerfect});
+  if(!same){gpRebuildExactBefore(state.currentTime);return}
+  // Resize recompiles geometry, not the player's already recorded judgments.
+  const saved={touches:new Map(gp.touches)},keys=[...gpKeys];for(const key of ['entries','combo','maxCombo','accSum','fullAcc','judgeSequence','cuts','lastFixed','indicatorBalls','effectKeys','lightningResults','lightningCursor','lightningPass','lightningMiss','touchHoldEnd','holdLasts'])saved[key]=gp[key];
+  gpFresh(rt);Object.assign(gp,saved);for(const key of keys)gpKeys.add(key);
+};
 function gpHoldSustained(n){for(const tc of gp.touches.values())if(tc.holdTouchEnd>=n.endSec)return true;return false}
 /* Hold/Drag pre-end activation.  The reference lets a hold/drag that was never
  * head-judged still be caught while the playhead is within 300 ms of its end
@@ -221,6 +266,7 @@ function gpProcessNote(n,t,catchup=false){
 }
 function gpUpdateAt(t){
   if(!gpIsPlay()||gp.autoplay)return;const notes=gpGetNotes(t,null);
+  gpLightningUpdate(t);
   for(const n of notes)gpProcessNote(n,t,false);
 }
 /* Forward stalls (rAF pause, GC, media glitch) can jump past a note's whole
@@ -229,10 +275,12 @@ function gpUpdateAt(t){
  * extremely long jumps fall back to the chart's note list. No allocation/sort at 120 Hz. */
 const GP_SWEEP_MAX_BUCKETS=4096;
 function gpSweepSkipped(fromT,toT){
+  gpLightningUpdate(toT);
   const bs=gp.bucketSec||.25,span=GP_WINDOWS.Bad*2;
   const i0=Math.floor(Math.max(0,fromT-span)/bs),i1=Math.floor(Math.max(0,toT+span)/bs);
   if(i1-i0>GP_SWEEP_MAX_BUCKETS){for(const n of gp.noteByKey.values())gpProcessNote(n,toT,true);return}
   const seen=gp.sweepSeen||(gp.sweepSeen=new Set());seen.clear();
+  for(const n of gp.longNotes||[])gpProcessNote(n,toT,true);
   for(let i=i0;i<=i1;i++){
     const q=gp.timeBuckets.get(i);if(!q)continue;
     for(const n of q){if(seen.has(n.key))continue;seen.add(n.key);gpProcessNote(n,toT,true)}

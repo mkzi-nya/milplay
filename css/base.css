@@ -28,3 +28,9 @@ body[data-mode="play"] .corner{display:none!important}
 body[data-mode="play"] .stageWrap{touch-action:none;cursor:default}
 body[data-mode="play"] .stageInner{transform:none!important}
 body[data-mode="play"] canvas{transform:none!important}
+
+/* Custom chart viewport: canvas keeps its authored geometry; only its surrounding
+   presentation changes. This is intentionally separate from the backing-store size. */
+.ratioInput{width:82px}
+.stageWrap.customStageRatio .stageInner{aspect-ratio:var(--mil-stage-ratio,16/9);height:auto}
+.stageWrap.customStageRatio canvas{height:100%;aspect-ratio:auto}

@@ -34,7 +34,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 | 倍速 | `rate` 范围 `0.05–8`（受浏览器变速能力限制） |
 | 谱面延迟 | 单位秒，`-5–5`；媒体时间 = `max(0, 谱面时间 + 延迟)` |
 | 音量 / 背景亮度 | 滑块 |
-| 全屏 | 原生全屏 + 横屏锁定；不可用时回退为页面内固定全屏或放大层 |
+| 全屏 | 原生全屏；不可用时回退为页面内固定全屏，保留实际横屏／竖屏比例 |
 | `1:1` | 重置暂停缩放 |
 | 自动游玩 | 开启后按谱面时间判定为 Exact，HUD 显示 AUTOPLAY |
 | 音符大小 / 流速 | `noteScale`（0.25–4）、`flowSpeed`（0.1–8） |
@@ -71,7 +71,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 - 方法被解绑保存后单独调用（如 `var u0=n0.timing; u0(...)`）仍能写入同一实例；
 - 链式调用（`MilizeBeatmap.withProperty("k","v").note(...)`）也受支持。
 
-解析超时为自适应 **4–60 秒**（`4000 + 源码长度×0.025 ms`，上限 60s）。它**不是完整游戏 SDK**，`env` 返回固定的 1920×1080 预览值（不随设备/DPR 变化）；桥接失败后回退 `staticTjson` 静态扫描。`import ... from "beatmap-js"` 行（含无分号形式）会被剥离后执行。该桥已用 **382 个真实谱面验证 382/382 成功解析**（`tests/milize-bridge.test.cjs` 有界抽样 + 指定回归样本）。
+解析超时为自适应 **4–60 秒**（`4000 + 源码长度×0.025 ms`，上限 60s）。它不是完整游戏 SDK：`stage.width/height` 现在返回实际舞台 CSS 尺寸，独立于 DPR；屏幕尺寸和用户大小／流速也注入环境。窗口变化后重新执行 JS 以更新谱面自己的比例补偿，保留原 `time` 种子；音符身份和时间没有变化时保留已经记录的判定与触点。若谱面根据屏幕尺寸生成了不同音符，则按当前时间重新建立游玩状态。JSON 或从本地自动保存恢复的谱面没有 JS 源码，不重新生成。桥接失败后回退 `staticTjson` 静态扫描。该桥已用 **382 个真实谱面验证 382/382 成功解析**。
 
 **`.milcht`**：解析文件表，取 `chart-data`/`chart`/`beatmap`/`raw-chart-data` 文本条目与 `audio-data`；zstd 条目按需从 jsDelivr 导入 `fzstd@0.1.1`，回退 `zstddec@0.2.0`。不支持游戏内部二进制谱面缓存。
 
@@ -90,6 +90,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 - 窗口：Exact <35ms、Perfect <70ms、Great <105ms、Good <140ms、Bad <155ms，否则为 Miss。按偏移绝对值从最小窗口开始判断，正好落在边界会落到更差的一档。
 - `isAlwaysPerfect`（AP）：偏移在 Good 窗口内（`<140ms`）命中即 Exact，否则 Miss。
 - 参与普通判定的只有类型 0（Tap/Hold）与类型 1（Drag）；Hold 头尾各计一次；类型 2（Fracture/Lightning）不计入普通判定与分数。
+- 闪电有独立的通过／触雷统计，结算显示两者数量；Fake 闪电只渲染，自动游玩按时间通过，跳转和重开会重建状态。碰撞盒依据解包的 `Fracture.prefab` 与 `fracture.asset`。原 DLL 判定方法为空桩，当前采用 **±50 ms 的兼容窗口**；原游戏的准确窗口、Lightning Miss 溢出对 ScoreV3 的惩罚，以及完整通过／爆炸特效仍未恢复。键盘无位置输入会作用于窗口内的闪电。不能将该兼容行为视为原版判定完全一致。
 - 手动输入来自指针（支持多指、`pointerrawupdate`）与 `A`–`Z`/`Space`；自动游玩按时间轴顺序判定为 Exact。
 - 固定步进 120 Hz；前向卡顿时最多执行 12 步，然后单次扫过跳过的区间补判 Miss，避免主线程死循环。
 
@@ -114,6 +115,8 @@ python3 -m http.server 8000 --bind 127.0.0.1
 | 出现 Bad 或 Miss | `COMBO` |
 
 ### 结算页
+
+结算布局参考 `参宿四.png`：左上重开与曲名／难度，左侧曲绘，右侧评级／分数／判定条，右上固定 `user`、`REALITY 114.514`；不显示底部基本／详细切换。评级规则来自查分器 `milkloud.js`：R ≥1,010,000，M ≥1,000,000，SS ≥950,000，S ≥850,000，A ≥750,000，B ≥650,000，C ≥600,000，否则 F。图标与 AP/FC 变体取自查分器本地资源，判定条显示 PERFECT 总数（Exact 数）及 GOOD 总数（Great 数）。没有历史最佳记录时不伪造截图中的分数增量。
 
 - 结算页（`js/17-result-page.js`）在歌曲结束或音频 `ended` 时显示，列出分数、准确率以及分组后的 PERFECT（Exact+Perfect）、GOOD（Great+Good）、BAD/MISS，可重开；结果页挂载在舞台内（`js/19-result-stage.js`），全屏与旋转时保持位置。
 - 视频导出（`js/20-video-export.js`）用 `MediaRecorder` + `canvas.captureStream(60)` 录制当前画布 backing-store 分辨率，包含 HUD/特效、不含 DOM 控件；音频轨来自媒体元素的 `captureStream`（若可用）。
@@ -141,10 +144,10 @@ illustration -> storyboard layer 0 -> black mask -> storyboard layer 1
 
 ```text
 背景 -> storyboard layer 0 -> 背景调暗 -> storyboard layer 1
--> 判定线 -> 打击特效 -> 音符 -> storyboard layer 2 -> HUD -> 变形故事板
+-> 打击特效 -> 音符 -> 判定线 -> storyboard layer 2 -> HUD -> 变形故事板
 ```
 
-layer 2 不再被错误地画到音符下面。该修复不会自动隐藏 HUD：Pluviora 的前景之后仍绘制 HUD，且其图片故事板支持不完整，不能据此宣称完整还原游戏。Algebra 在 45–49 秒的背景 black 已覆盖全屏，但谱面 alpha 为 0.5；beats1 图片大部分透明，因此这两者不会自然合成为纯黑并抹去 HUD。没有将 alpha 强改为 1，也没有按图片名隐藏 UI。原游戏额外显隐事件仍待恢复，见 [调查记录](tests/hud-investigation.md)。
+layer 2 不再被错误地画到音符下面；判定线在音符之后合成，note 到达终点时线会从其上方穿过。该修复不会自动隐藏 HUD：Pluviora 的前景之后仍绘制 HUD，且其图片故事板支持不完整，不能据此宣称完整还原游戏。Algebra 在 45–49 秒的背景 black 已覆盖全屏，但谱面 alpha 为 0.5；beats1 图片大部分透明，因此这两者不会自然合成为纯黑并抹去 HUD。没有将 alpha 强改为 1，也没有按图片名隐藏 UI。原游戏额外显隐事件仍待恢复，见 [调查记录](tests/hud-investigation.md)。
 
 ## 模块一览与加载顺序
 
@@ -154,6 +157,7 @@ layer 2 不再被错误地画到音符下面。该修复不会自动隐藏 HUD�
 builtin-sources -> 01-base -> 02 -> 03 -> 04 -> 05 -> 06 -> 07-hud-progress
 -> 07-play-controls -> 08-hud-pause -> 08-play-enlarged -> 09-package -> 09-score -> 10-gameplay -> 11 -> 12
 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 20
+-> 21-stage-environment
 ```
 
 | 文件 | 职责 |
@@ -197,7 +201,9 @@ builtin-sources -> 01-base -> 02 -> 03 -> 04 -> 05 -> 06 -> 07-hud-progress
 - 故事板由 09 提供共享取样策略，09 的 URL/包资源路径和 15 的最终 loader 均调用 `window.__milSampleStoryboard`：**长边不超过 2560、每张总像素不超过 4,147,200**，等比缩小后向下取整（最短边至少 1），不放大小图。4096×2304 现保留为 2560×1440（原触屏重谱为 1024×576）；8192×8192 取样为 2036×2036。原图几何尺寸单独保存在 `sourceWidth/sourceHeight`，最终渲染仍按原尺寸计算布局。
 - 图片仍按需加载，不预先解码全部故事板；缓存不随 DPR/窗口变化反复解码，换包继续清空缓存并回收 object URL。下采样后释放缓存中的原图引用，已有 WebP 文件不转换、不重编码。普通背景继续直接绘制原图，受益于提高后的画布 DPR；上述单张取样预算不限制普通背景的原始解码尺寸。
 - 着色临时画布（`__milTintSlice`）按目标 backing pixels 与可用纹理尺寸取样，上限为 1,048,576 像素、长边 4096，白色直接绘制。着色故事板仍可能受此独立预算限制。
-- 活动音符按 1 秒分桶索引（`__pluActiveBuckets`），`js/16-targeted-perf.js` 重建带 `activeFrom/activeTo` 与装饰性假音符复用窗口的索引；判定用的时间桶按 0.25s 分桶，空桶直接返回空数组。
+- 活动音符使用区间树，每个音符仅存一个节点，倒放可查询；取消固定 30 秒提前窗口，避免低速、反向或定位动画音符提前出现时被漏绘。普通判定按 0.25 秒分桶，超过约 64 秒的 Hold 单独索引，特效也采用相同的长 Hold 策略，避免内存随持续时间增长。
+- 同一时间的判定线属性复用计算结果；Note 创建顺序去重使用 Set；动画轨道通过预编译的转移边界二分查询，支持重叠事件和任意方向跳转；表达式函数缓存限制为 512 个。
+- 图片故事板支持 14–21 号四角坐标动画，以两个裁剪三角形绘制，保留原层次、颜色和负缩放；非变形图片仍走原快速路径。VisibleArea 使用谱面坐标默认值，Speed 按规范线性积分，扩展缓动 11–15 不再被强制截成 Bounce。
 - `hit_ring` 着色环按 `textureIndex:color` 键缓存（`__plu100TintedRings`，上限 180 项）；粒子对密集拖键做步长抽稀（`__pluParticleStride`）；HUD 文本按画布宽度缩放。
 - 游玩渲染上限 60 Hz（`now-__playLastRender>=15.5`）；**暂停时不重绘**（静态场景不占用主线程与电量）；DOM 控件文本写入限 15 Hz。
 - **这些只是降低开销的工程措施，不承诺任何机型或帧率**。复杂故事板、超大压缩包、密集动画、ZIP/JSON 解析与运行时构建仍可能长时间占用主线程。**本仓库没有手机性能数据，也不保证手机 FPS**；已有验证是逻辑/导入层面，不是真机帧率测量。

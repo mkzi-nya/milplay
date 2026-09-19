@@ -12,13 +12,16 @@ html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll
   height:100dvh!important;
   margin:0!important;
   border-radius:0!important;
-  background:#05070c!important;
+  background:#05070c var(--mil-stage-art) center/cover no-repeat!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
   overflow:hidden!important;
   touch-action:none!important;
 }
+.stageWrap.playExpanded::before,.stageWrap.nativePlayFullscreen::before{content:"";position:absolute;inset:-24px;background:inherit;background-image:var(--mil-stage-art);background-size:cover;background-position:center;filter:blur(24px);opacity:.72;transform:scale(1.08);z-index:0;pointer-events:none}
+.stageWrap.playExpanded .stageInner,.stageWrap.nativePlayFullscreen .stageInner{z-index:1}
+.stageWrap.playExpanded.customStageRatio .stageInner{width:min(100vw,calc(100dvh * var(--mil-stage-ratio,16/9)))!important;height:min(100dvh,calc(100vw / var(--mil-stage-ratio,16/9)))!important;aspect-ratio:var(--mil-stage-ratio,16/9)!important}
 .stageWrap.playExpanded .stageInner{
   position:relative!important;
   left:auto!important;top:auto!important;

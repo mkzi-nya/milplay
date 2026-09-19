@@ -22,25 +22,24 @@ function downloadBlob(blob,name){
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},1500);
 }
 function setProgress(text){if(!progress)return;progress.hidden=!text;progress.textContent=text||''}
-function waitRecorderStop(rec){return new Promise((resolve,reject)=>{rec.addEventListener('stop',resolve,{once:true});rec.addEventListener('error',e=>reject(e.error||new Error('视频编码失败')),{once:true})})}
 async function exportVideo(){
   if(job){job.cancelled=true;btn.textContent='正在停止…';return}
   if(state?.appMode!=='play'){setStatus('请切换到游玩模式后导出视频。','warn');return}
   if(!state?.runtime){setStatus('请先加载谱面。','err');return}
   if(!HTMLCanvasElement.prototype.captureStream||!window.MediaRecorder){setStatus('当前浏览器不支持 Canvas 视频导出（需要 MediaRecorder + captureStream）。','err');return}
-  const duration=Math.max(0.001,Number(state.duration||state.runtime.duration||0));
+  const duration=Number(state.duration||state.runtime.duration||0);
   if(!Number.isFinite(duration)||duration<=0){setStatus('谱面时长无效，无法导出视频。','err');return}
 
   const canvas=els.stage;
   const saved={
     time:state.currentTime,playing:state.playing,rate:state.rate,
-    audioRate:els.audioPlayer.playbackRate,showHands:state.showHandTextures
+    audioRate:els.audioPlayer.playbackRate,showHands:state.showHandTextures,chart:state.chart
   };
   job={cancelled:false};
   btn.classList.add('exporting');btn.textContent='取消导出';btn.disabled=false;
   setProgress('准备编码…');
 
-  let recorder=null,stream=null;
+  let recorder=null,stream=null,ownedTracks=[];
   try{
     setPlaying(false);
     state.showHandTextures=true;
@@ -55,7 +54,7 @@ async function exportVideo(){
     const ew=canvas.width,eh=canvas.height;
     const fps=60;
     const canvasStream=canvas.captureStream(fps);
-    const tracks=[...canvasStream.getVideoTracks()];
+    const tracks=ownedTracks=[...canvasStream.getTracks()];
     const media=els.audioPlayer;
     const capture=media.captureStream||media.mozCaptureStream;
     if(state.mediaUrl&&state.mediaReady&&capture){
@@ -67,23 +66,36 @@ async function exportVideo(){
     /* 不设置人为的画质上限；码率随实际像素数增长。 */
     const vbr=Math.max(6_000_000,Math.round(pixels*12));
     recorder=new MediaRecorder(stream,{...(mime?{mimeType:mime}:{}),videoBitsPerSecond:vbr,audioBitsPerSecond:192000});
+    let recorderError=null;
+    // Listen before start: both asynchronous encoder errors and synchronous stop
+    // events must be observed, without a rejected promise left unhandled.
+    const stopped=new Promise(resolve=>{
+      recorder.addEventListener('stop',resolve,{once:true});
+      recorder.addEventListener('error',e=>{recorderError=e.error||new Error('视频编码失败');resolve()},{once:true});
+    });
     const chunks=[];
     recorder.addEventListener('dataavailable',e=>{if(e.data&&e.data.size)chunks.push(e.data)});
     recorder.start(2000); // larger chunks = less JS/GC overhead on long songs
 
-    const started=performance.now();
+    const started=performance.now();let lastTime=0,lastProgress=started;
     state.currentTime=0;state.lastTick=performance.now();
     setPlaying(true);
     while(!job.cancelled&&state.currentTime<duration-0.002){
+      if(recorderError)throw recorderError;
+      if(recorder.state==='inactive')throw new Error('编码器提前停止');
+      if(state.chart!==saved.chart)throw new Error('谱面已切换，已停止当前导出');
+      if(state.currentTime>lastTime+.001){lastTime=state.currentTime;lastProgress=performance.now()}
+      if(!state.playing||performance.now()-lastProgress>15000)throw new Error('播放已暂停或音频停滞，已停止导出');
       const pct=Math.min(100,Math.max(0,state.currentTime/duration*100));
-      const elapsed=(performance.now()-started)/1000;
       const remain=Math.max(0,duration-state.currentTime);
       setProgress(`${pct.toFixed(1)}% · ${state.currentTime.toFixed(1)}/${duration.toFixed(1)}s · 约剩 ${remain.toFixed(0)}s`);
       await sleep(200);
     }
+    if(state.chart!==saved.chart)throw new Error('谱面已切换，已停止当前导出');
+    if(recorderError)throw recorderError;
     setPlaying(false);
-    if(recorder.state!=='inactive')recorder.stop();
-    await waitRecorderStop(recorder);
+    if(recorder.state!=='inactive'){recorder.stop();await stopped}
+    if(recorderError)throw recorderError;
     if(job.cancelled){setProgress('已取消');await sleep(500);return}
     setProgress('封装视频…');
     const actualMime=recorder.mimeType||mime||'video/webm';
@@ -98,14 +110,12 @@ async function exportVideo(){
     setStatus('视频导出失败：'+(e?.message||String(e)),'err');
   }finally{
     try{if(recorder&&recorder.state!=='inactive')recorder.stop()}catch{}
-    try{stream?.getTracks().forEach(t=>t.stop())}catch{}
+    for(const track of ownedTracks){try{track.stop()}catch{}}
     state.rate=saved.rate;els.audioPlayer.playbackRate=saved.audioRate||saved.rate||1;
     state.showHandTextures=saved.showHands;
-    state.currentTime=Math.min(saved.time,state.duration||saved.time);state.lastTick=performance.now();
-    syncMediaToChart(true);render();updateControls();
-    if(saved.playing)setPlaying(true);
+    if(state.chart===saved.chart){seek(Math.min(saved.time,state.duration||saved.time));state.lastTick=performance.now();syncMediaToChart(true);render();updateControls();if(saved.playing)setPlaying(true)}
     btn.classList.remove('exporting');btn.textContent='导出视频';btn.disabled=false;
-    job=null;setTimeout(()=>setProgress(''),900);
+    job=null;setTimeout(()=>{if(!job)setProgress('')},900);
   }
 }
 btn.addEventListener('click',exportVideo);
