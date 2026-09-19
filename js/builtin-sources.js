@@ -1,0 +1,2 @@
+'use strict';
+const BUILTIN_SOURCES={"line_head":"assets/line_head.webp","fracture_legacy":"assets/fracture_legacy.webp","drag":"assets/drag.webp","exhold":"assets/exhold.webp","exhold_double":"assets/exhold_double.webp","extap":"assets/extap.webp","extap_double":"assets/extap_double.webp","hold":"assets/hold.webp","hold_double":"assets/hold_double.webp","tap":"assets/tap.webp","tap_double":"assets/tap_double.webp"};

@@ -1,0 +1,13 @@
+/* Play mode removes editor-only controls, not playback controls. */
+body[data-mode="play"] .controls{display:grid!important}
+body[data-mode="play"] .playerTop .stats{display:none!important}
+body[data-mode="play"] .corner{display:flex!important}
+body[data-mode="play"] .fsLeft #fsBack1Btn{display:none!important}
+.playModeBar{flex-wrap:wrap}
+.playTuneLabel{gap:6px!important}
+.playTuneInput{width:72px!important;min-height:32px!important;height:32px!important;padding:5px 7px!important}
+.hudProgress{position:absolute;z-index:8;left:0;top:0;width:100%;height:24px;box-sizing:border-box;touch-action:none;pointer-events:none;background:transparent;outline:none}
+body[data-mode="play"] .hudProgress[aria-disabled="false"]{pointer-events:auto;cursor:ew-resize}
+.hudProgress:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+body[data-mode="play"] .stageWrap.landscapeFallback:fullscreen .stageInner{transform:translate(-50%,-50%) rotate(90deg)!important}
+body[data-mode="play"] .stageWrap.landscapeFallback:-webkit-full-screen .stageInner{transform:translate(-50%,-50%) rotate(90deg)!important}
