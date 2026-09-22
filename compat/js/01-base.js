@@ -3228,7 +3228,8 @@ const __MIL_ASSET_SAVE_KEY = SAVE_KEY + '_render-assets-v1';
  * time share the same song-time origin; any extra offset must be an explicit user choice. */
 if (Math.abs(Number(state.audioDelay) - 0.11) < 1e-12) state.audioDelay = 0;
 if (els.audioDelayInput) els.audioDelayInput.value = String(state.audioDelay || 0);
-if (els.fileInput && !String(els.fileInput.accept || '').includes('.milthm')) els.fileInput.accept = (els.fileInput.accept ? els.fileInput.accept + ',' : '') + '.milthm,.tjson,.mjs,.cjs,.gif,.bmp,.svg';
+/* iOS Files hides unknown custom extensions when accept is MIME-restricted. */
+if (els.fileInput && !String(els.fileInput.accept || '').includes('*/*')) els.fileInput.accept = '*/*';
 const __milOriginalMimeForName = mimeForName;
 mimeForName = function (name) {
   const n = String(name || '').toLowerCase();
