@@ -349,6 +349,8 @@ function gpDrawManualEffects(rt,sec,w,h,lineStates=null){
   if(!gpIsPlay()||gp.autoplay||!state.hitEffects)return;
   for(const key of gp.effectKeys){const n=gp.noteByKey.get(key);if(!n){gp.effectKeys.delete(key);continue}const e=gpEntry(n);if(!e.headJudged||!e.judgeHited||sec<e.judgeTime)continue;const age=sec-e.judgeTime,endFx=n.isHold?Math.min(n.endSec,e.judgeIsMiss?e.judgeMissTime:n.endSec)+.5:e.judgeTime+.5;if(sec>endFx){gp.effectKeys.delete(key);continue}
     const st=lineStates?.[n.lineIdx]||transformLine(rt,n.lineIdx,sec,w,h),proxy={...n,startSec:e.judgeTime,endSec:n.isHold?Math.min(n.endSec,e.judgeIsMiss?e.judgeMissTime:n.endSec):e.judgeTime};const old=gpEffectKind,oldRing=gpDrawingRing;gpEffectKind=e.judgeIsGood?'good':'normal';
+    /* 特效固定在判定瞬间的实际落点：记录当帧落点，之后不随 note 逐帧移动。 */
+    if(typeof __pluAnchorEffectNote==='function')__pluAnchorEffectNote(proxy,e.judgeTime);
     try{if(gpHitRingRaw&&age<=.5){gpDrawingRing=true;gpHitRingRaw(rt,proxy,sec,st,w,h);gpDrawingRing=false}if(gpParticlesRaw&&(!n.isHold?age<=.5:sec<=proxy.endSec+.5))gpParticlesRaw(rt,proxy,sec,st,w,h)}finally{gpEffectKind=old;gpDrawingRing=oldRing}
   }
 }

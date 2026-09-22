@@ -863,6 +863,8 @@
       const old = gpEffectKind,
         oldRing = gpDrawingRing;
       gpEffectKind = e.judgeIsGood ? 'good' : 'normal';
+      /* 特效固定在判定瞬间的实际落点：记录当帧落点，之后不随 note 逐帧移动。 */
+      if (typeof __pluAnchorEffectNote === 'function') __pluAnchorEffectNote(proxy, e.judgeTime);
       try {
         if (gpHitRingRaw && age <= .5) {
           gpDrawingRing = true;
