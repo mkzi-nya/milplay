@@ -7,7 +7,7 @@
   background:#05070c!important;overflow:hidden!important;touch-action:none!important;
 }
 .stageWrap.nativePlayFullscreen .stageInner,.stageWrap:fullscreen .stageInner,.stageWrap:-webkit-full-screen .stageInner{
-  position:absolute!important;left:50%!important;top:50%!important;inset:auto!important;
+  position:absolute!important;inset:auto!important;left:50%!important;top:50%!important;
   width:min(100vw,calc(100dvh * 16 / 9))!important;height:min(100dvh,calc(100vw * 9 / 16))!important;
   max-width:none!important;max-height:none!important;aspect-ratio:16/9!important;transform:translate(-50%,-50%)!important;
 }
