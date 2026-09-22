@@ -89,7 +89,11 @@
   window.__gpEnterGameplayFullscreen = enter;
   window.__gpGameplayFullscreenActive = () => isNative() || isFallback();
   requestLandscapeFullscreen = async function () {
-    if (isNative() || isFallback()) await leave();else await enter();
+    if (isNative() || isFallback()) {
+      await leave();
+      return;
+    }
+    await enter();
   };
   exitBtn.addEventListener('click', e => {
     e.preventDefault();

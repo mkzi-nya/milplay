@@ -264,11 +264,7 @@ function safeName(s) {
 function deepClone(o) {
   return JSON.parse(JSON.stringify(o));
 }
-function setStatus(m, t = '') {
-  if (els.status) {
-    els.status.className = 'status' + (t ? ' ' + t : '');
-    els.status.textContent = m;
-  }
+function __milLogStatus(m, t = '') {
   if (!els.parseLog) return;
   const text = String(m || '');
   if (t === 'ok' || t !== 'err' && text === '') {
@@ -281,10 +277,16 @@ function setStatus(m, t = '') {
     minute: '2-digit',
     second: '2-digit'
   });
-  const line = '[' + stamp + '] ' + text;
-  els.parseLog.value += line + '\n';
+  els.parseLog.value += '[' + stamp + '] ' + text + '\n';
   els.parseLog.hidden = false;
   els.parseLog.scrollTop = els.parseLog.scrollHeight;
+}
+function setStatus(m, t = '') {
+  if (els.status) {
+    els.status.className = 'status' + (t ? ' ' + t : '');
+    els.status.textContent = m;
+  }
+  __milLogStatus(m, t);
 }
 function __milResetParseLog() {
   if (els.parseLog) {

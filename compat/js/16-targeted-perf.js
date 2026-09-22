@@ -29,12 +29,14 @@
   /* Only actual errors create a status row. Warnings/progress/success remain available
      to the console but don't make the upload card jump in height. */
   setStatus = function (message, type = '') {
-    if (!els.status) return;
     const text = String(message != null ? message : '');
     const quietInfra = /(?:自动保存失败|本地保存不可用|IndexedDB)/i.test(text);
     const looksError = !quietInfra && (type === 'err' || /(?:解析失败|加载失败|读取失败|没有找到可用(?:谱面|文件)|无法(?:解析|读取|加载)|不支持的谱面|错误[:：])/i.test(text));
-    els.status.className = 'status' + (looksError ? ' err' : '');
-    els.status.textContent = looksError ? text : '';
+    if (els.status) {
+      els.status.className = 'status' + (looksError ? ' err' : '');
+      els.status.textContent = looksError ? text : '';
+    }
+    if (typeof __milLogStatus === 'function') __milLogStatus(text, looksError ? 'err' : type);
     if (!looksError && text && (type === 'warn' || quietInfra)) console.warn('[Milthm]', text);
   };
   if (els.restoreBar) els.restoreBar.classList.remove('show');

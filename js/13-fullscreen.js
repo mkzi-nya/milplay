@@ -33,7 +33,10 @@ async function enter(){
   requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()});
 }
 window.__gpLeaveGameplayFullscreen=leave;window.__gpEnterGameplayFullscreen=enter;window.__gpGameplayFullscreenActive=()=>isNative()||isFallback();
-requestLandscapeFullscreen=async function(){if(isNative()||isFallback())await leave();else await enter()};
+ requestLandscapeFullscreen=async function(){
+   if(isNative()||isFallback()){await leave();return}
+   await enter();
+ };
 exitBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();leave()},{capture:true});
 function sync(){
   if(!isNative()&&!isFallback()){
