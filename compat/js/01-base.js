@@ -129,6 +129,7 @@ const els = {
   fileInput: id('fileInput'),
   dropZone: id('dropZone'),
   status: id('status'),
+  parseLog: id('parseLog'),
   restoreBar: id('restoreBar'),
   restoreYes: id('restoreYes'),
   restoreNo: id('restoreNo'),
@@ -264,9 +265,14 @@ function deepClone(o) {
   return JSON.parse(JSON.stringify(o));
 }
 function setStatus(m, t = '') {
-  if (!els.status) return;
-  els.status.className = 'status' + (t ? ' ' + t : '');
-  els.status.textContent = m;
+  if (els.status) {
+    els.status.className = 'status' + (t ? ' ' + t : '');
+    els.status.textContent = m;
+  }
+  if (els.parseLog) {
+    els.parseLog.value = String(m || '');
+    els.parseLog.hidden = t === 'ok' || !m;
+  }
 }
 function toNum(v, def = 0) {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
