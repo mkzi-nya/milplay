@@ -269,10 +269,26 @@ function setStatus(m, t = '') {
     els.status.className = 'status' + (t ? ' ' + t : '');
     els.status.textContent = m;
   }
-  if (els.parseLog) {
-    els.parseLog.value = String(m || '');
-    els.parseLog.hidden = t === 'ok' || !m;
+  if (!els.parseLog) return;
+  const text = String(m || '');
+  if (t === 'ok') {
+    els.parseLog.hidden = true;
+    return;
   }
+  if (t !== 'err' && text === '') {
+    els.parseLog.hidden = true;
+    els.parseLog.value = '';
+    return;
+  }
+  const stamp = new Date().toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  const line = '[' + stamp + '] ' + text;
+  els.parseLog.value += line + '\n';
+  els.parseLog.hidden = false;
+  els.parseLog.scrollTop = els.parseLog.scrollHeight;
 }
 function toNum(v, def = 0) {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
