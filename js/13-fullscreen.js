@@ -8,6 +8,12 @@ const nativeElement=()=>document.fullscreenElement||document.webkitFullscreenEle
 const isNative=()=>nativeElement()===wrap;
 const isFallback=()=>wrap.classList.contains('nativePlayFullscreen');
 function clearOldExpanded(){wrap.classList.remove('playExpanded');document.documentElement.classList.remove('playExpandedRoot');document.body.classList.remove('playExpandedRoot')}
+async function lockLandscape(){try{await screen.orientation?.lock?.('landscape')}catch{}}
+function syncFallbackOrientation(){
+  if(!isFallback())return;
+  const portrait=window.matchMedia?.('(orientation: portrait)')?.matches || innerHeight>innerWidth;
+  wrap.classList.toggle('nativeLandscapeFallback',portrait);
+}
 async function unlockOrientation(){try{screen.orientation?.unlock?.()}catch{}}
 async function unlockKeyboard(){try{await navigator.keyboard?.unlock?.()}catch{}}
 async function leave(){
@@ -17,7 +23,7 @@ async function leave(){
   try{window.__gpHideResult?.(true)}catch{}
   await unlockKeyboard();
   if(isNative()){try{await (document.exitFullscreen?.()||document.webkitExitFullscreen?.())}catch{}}
-  wrap.classList.remove('nativePlayFullscreen','nativeLandscapeFallback');clearOldExpanded();await unlockOrientation();
+   wrap.classList.remove('nativePlayFullscreen','nativeLandscapeFallback');clearOldExpanded();await unlockOrientation();
   if(typeof markStageResize==='function')markStageResize();resizeCanvas();render();
 }
 async function enter(){
@@ -29,7 +35,8 @@ async function enter(){
      pause key; long/system Escape remains available to the browser. */
   if(isNative())try{await navigator.keyboard?.lock?.(['Escape'])}catch{}
   // Use the actual screen ratio, including portrait and ultrawide screens.
-  await unlockOrientation();
+  await lockLandscape();
+  syncFallbackOrientation();
   requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()});
 }
 window.__gpLeaveGameplayFullscreen=leave;window.__gpEnterGameplayFullscreen=enter;window.__gpGameplayFullscreenActive=()=>isNative()||isFallback();
@@ -39,14 +46,14 @@ window.__gpLeaveGameplayFullscreen=leave;window.__gpEnterGameplayFullscreen=ente
  };
 exitBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();leave()},{capture:true});
 function sync(){
-  if(!isNative()&&!isFallback()){
+   if(!isNative()&&!isFallback()){
     /* Some browsers reserve native Escape and exit fullscreen even after preventDefault.
        If this was the first Escape used to pause, immediately preserve the gameplay
        surface as the fixed fullscreen fallback. The next Escape removes it normally. */
     if((Number(window.__gpEscPauseGuardUntil)||0)>performance.now())wrap.classList.add('nativePlayFullscreen');
     else{wrap.classList.remove('nativeLandscapeFallback');unlockKeyboard();unlockOrientation();try{window.__gpHideResult?.(true)}catch{}}
   }
-  if(isNative()||isFallback())wrap.classList.remove('nativeLandscapeFallback');
+   if(isFallback())syncFallbackOrientation();
   requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()})
 }
 document.addEventListener('fullscreenchange',sync);document.addEventListener('webkitfullscreenchange',sync);window.addEventListener('orientationchange',sync,{passive:true});window.addEventListener('resize',()=>{if(isNative()||isFallback())sync()},{passive:true});

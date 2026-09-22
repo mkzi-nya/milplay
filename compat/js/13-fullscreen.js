@@ -22,10 +22,22 @@
     document.documentElement.classList.remove('playExpandedRoot');
     document.body.classList.remove('playExpandedRoot');
   }
-  async function unlockOrientation() {
+  async function lockLandscape() {
     try {
       var _screen$orientation;
-      (_screen$orientation = screen.orientation) == null || _screen$orientation.unlock == null || _screen$orientation.unlock();
+      await ((_screen$orientation = screen.orientation) == null || _screen$orientation.lock == null ? void 0 : _screen$orientation.lock('landscape'));
+    } catch {}
+  }
+  function syncFallbackOrientation() {
+    var _window$matchMedia;
+    if (!isFallback()) return;
+    const portrait = (window.matchMedia == null || (_window$matchMedia = window.matchMedia('(orientation: portrait)')) == null ? void 0 : _window$matchMedia.matches) || innerHeight > innerWidth;
+    wrap.classList.toggle('nativeLandscapeFallback', portrait);
+  }
+  async function unlockOrientation() {
+    try {
+      var _screen$orientation2;
+      (_screen$orientation2 = screen.orientation) == null || _screen$orientation2.unlock == null || _screen$orientation2.unlock();
     } catch {}
   }
   async function unlockKeyboard() {
@@ -78,7 +90,8 @@
       await ((_navigator$keyboard2 = navigator.keyboard) == null || _navigator$keyboard2.lock == null ? void 0 : _navigator$keyboard2.lock(['Escape']));
     } catch {}
     // Use the actual screen ratio, including portrait and ultrawide screens.
-    await unlockOrientation();
+    await lockLandscape();
+    syncFallbackOrientation();
     requestAnimationFrame(() => {
       if (typeof markStageResize === 'function') markStageResize();
       resizeCanvas();
@@ -116,7 +129,7 @@
         } catch {}
       }
     }
-    if (isNative() || isFallback()) wrap.classList.remove('nativeLandscapeFallback');
+    if (isFallback()) syncFallbackOrientation();
     requestAnimationFrame(() => {
       if (typeof markStageResize === 'function') markStageResize();
       resizeCanvas();

@@ -41,7 +41,7 @@
 @media (orientation:portrait){
   body[data-mode="play"] .stageWrap.nativeLandscapeFallback .stageInner{
     left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;
-    width:100dvh!important;height:100vw!important;transform:translate(-50%,-50%) rotate(90deg)!important;
+    width:100vh!important;height:100vw!important;transform:translate(-50%,-50%) rotate(90deg)!important;
     transform-origin:50% 50%!important;
   }
   body[data-mode="play"] .stageWrap.nativeLandscapeFallback #stage{width:100%!important;height:100%!important;transform:none!important}
