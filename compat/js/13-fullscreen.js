@@ -28,6 +28,18 @@
       (_screen$orientation = screen.orientation) == null || _screen$orientation.unlock == null || _screen$orientation.unlock();
     } catch {}
   }
+  async function lockLandscape() {
+    try {
+      var _screen$orientation2;
+      await ((_screen$orientation2 = screen.orientation) == null || _screen$orientation2.lock == null ? void 0 : _screen$orientation2.lock('landscape'));
+    } catch {}
+  }
+  function syncLandscapeLayout() {
+    const active = isNative() || isFallback();
+    if (!active) return;
+    const portrait = innerHeight > innerWidth;
+    wrap.classList.toggle('nativeLandscapeFallback', portrait);
+  }
   async function unlockKeyboard() {
     try {
       var _navigator$keyboard;
@@ -73,7 +85,8 @@
       var _navigator$keyboard2;
       await ((_navigator$keyboard2 = navigator.keyboard) == null || _navigator$keyboard2.lock == null ? void 0 : _navigator$keyboard2.lock(['Escape']));
     } catch {}
-    await unlockOrientation();
+    await lockLandscape();
+    syncLandscapeLayout();
     requestAnimationFrame(() => {
       if (typeof markStageResize === 'function') markStageResize();
       resizeCanvas();
@@ -104,7 +117,7 @@
         } catch {}
       }
     }
-    if (isNative() || isFallback()) wrap.classList.remove('nativeLandscapeFallback');
+    if (isNative() || isFallback()) syncLandscapeLayout();
     requestAnimationFrame(() => {
       if (typeof markStageResize === 'function') markStageResize();
       resizeCanvas();

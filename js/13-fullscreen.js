@@ -9,6 +9,13 @@ const isNative=()=>nativeElement()===wrap;
 const isFallback=()=>wrap.classList.contains('nativePlayFullscreen');
 function clearOldExpanded(){wrap.classList.remove('playExpanded');document.documentElement.classList.remove('playExpandedRoot');document.body.classList.remove('playExpandedRoot')}
 async function unlockOrientation(){try{screen.orientation?.unlock?.()}catch{}}
+async function lockLandscape(){try{await screen.orientation?.lock?.('landscape')}catch{}}
+function syncLandscapeLayout(){
+  const active=isNative()||isFallback();
+  if(!active)return;
+  const portrait=innerHeight>innerWidth;
+  wrap.classList.toggle('nativeLandscapeFallback',portrait);
+}
 async function unlockKeyboard(){try{await navigator.keyboard?.unlock?.()}catch{}}
 async function leave(){
   window.__gpEscPauseGuardUntil=0;
@@ -24,7 +31,8 @@ async function enter(){
   try{if(wrap.requestFullscreen){await wrap.requestFullscreen({navigationUI:'hide'});nativeOk=true}else if(wrap.webkitRequestFullscreen){await wrap.webkitRequestFullscreen();nativeOk=true}}catch{}
   if(!nativeOk&&!isNative())wrap.classList.add('nativePlayFullscreen');
   if(isNative())try{await navigator.keyboard?.lock?.(['Escape'])}catch{}
-  await unlockOrientation();
+  await lockLandscape();
+  syncLandscapeLayout();
   requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()});
 }
 window.__gpLeaveGameplayFullscreen=leave;window.__gpEnterGameplayFullscreen=enter;window.__gpGameplayFullscreenActive=()=>isNative()||isFallback();
@@ -35,7 +43,7 @@ function sync(){
     if((Number(window.__gpEscPauseGuardUntil)||0)>performance.now())wrap.classList.add('nativePlayFullscreen');
     else{wrap.classList.remove('nativeLandscapeFallback');unlockKeyboard();unlockOrientation();try{window.__gpHideResult?.(true)}catch{}}
   }
-  if(isNative()||isFallback())wrap.classList.remove('nativeLandscapeFallback');
+  if(isNative()||isFallback())syncLandscapeLayout();
   requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()})
 }
 document.addEventListener('fullscreenchange',sync);document.addEventListener('webkitfullscreenchange',sync);window.addEventListener('orientationchange',sync,{passive:true});window.addEventListener('resize',()=>{if(isNative()||isFallback())sync()},{passive:true});
