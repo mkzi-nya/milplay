@@ -1,0 +1,6 @@
+/* The secondary restore banner is obsolete; keep its hidden DOM nodes only so legacy
+   listeners remain harmless. Normal informational status no longer occupies a row. */
+#restoreBar{display:none!important}
+#status{display:none!important;margin-top:0}
+#status.err:not(:empty){display:block!important;padding-top:0}
+body[data-mode="play"] #playModeBar{display:flex!important;visibility:visible!important}

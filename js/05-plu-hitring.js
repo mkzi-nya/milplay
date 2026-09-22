@@ -66,7 +66,7 @@ function __plu100DrawRingMask(cx,cy,size,rotationDeg,color,textureIndex){
   if(!tint){
     const mask=__plu100RingMask(textureIndex),c=document.createElement('canvas');c.width=N;c.height=N;const x=c.getContext('2d',{alpha:true});
     x.globalCompositeOperation='source-over';x.globalAlpha=1;x.drawImage(mask,0,0);x.globalCompositeOperation='source-in';x.fillStyle=`rgba(${color[0]},${color[1]},${color[2]},1)`;x.fillRect(0,0,N,N);x.globalCompositeOperation='source-over';
-    tint=c;if(__plu100TintedRings.size>=180)__plu100TintedRings.delete(__plu100TintedRings.keys().next().value);__plu100TintedRings.set(key,tint);
+    tint=c;const limit=window.__milIsLowMemoryMode?.()?48:180;if(__plu100TintedRings.size>=limit)__plu100TintedRings.delete(__plu100TintedRings.keys().next().value);__plu100TintedRings.set(key,tint);
   }
   ctx.save();ctx.translate(cx,cy);ctx.rotate(rotationDeg*Math.PI/180);ctx.imageSmoothingEnabled=true;ctx.drawImage(tint,-size/2,-size/2,size,size);ctx.restore();
 }

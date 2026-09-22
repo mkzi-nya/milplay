@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "scripts": {
+    "build:compat": "node scripts/build-compatible.cjs",
+    "test": "node --test tests/*.test.cjs tests/*.test.mjs hud-progress.test.cjs"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.9",
+    "@babel/preset-env": "^7.26.9"
+  }
+}

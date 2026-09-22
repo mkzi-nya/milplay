@@ -1,0 +1,2 @@
+#stageInner{position:relative}
+#stageInner>.gameResultOverlay{position:absolute;inset:0;width:100%;height:100%;z-index:120;transform:none}

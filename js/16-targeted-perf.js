@@ -46,7 +46,8 @@ __milTintSlice=function(img,sx,sy,sw,sh,dx,dy,dw,dh,color){
   const zoom=Math.abs(Number(state.viewScale))||1,
         rw=Math.max(1,Math.min(Math.floor(Math.min(iw,Math.abs(sw))),Math.ceil(Math.abs(dw)*zoom))),
         rh=Math.max(1,Math.min(Math.floor(Math.min(ih,Math.abs(sh))),Math.ceil(Math.abs(dh)*zoom))),
-        scale=Math.min(1,RENDER_QUALITY.maxTintSide/Math.max(rw,rh),Math.sqrt(RENDER_QUALITY.maxTintPixels/(rw*rh))),
+         tintSide=state.lowMemory?RENDER_QUALITY.lowMemoryTintSide:RENDER_QUALITY.maxTintSide,tintPixels=state.lowMemory?RENDER_QUALITY.lowMemoryTintPixels:RENDER_QUALITY.maxTintPixels,
+         scale=Math.min(1,tintSide/Math.max(rw,rh),Math.sqrt(tintPixels/(rw*rh))),
         tw=Math.max(1,Math.floor(rw*scale)),th=Math.max(1,Math.floor(rh*scale));
   if(!__targetTintCanvas){__targetTintCanvas=document.createElement('canvas');__targetTintCtx=__targetTintCanvas.getContext('2d',{alpha:true,willReadFrequently:false})}
   // 先缩小再扩宽，长条横竖切换时也不产生超预算的中间缓冲。

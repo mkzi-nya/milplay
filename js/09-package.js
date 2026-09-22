@@ -56,7 +56,8 @@ function __pkgStoryDrawableReady(d){return !!d&&((d instanceof HTMLCanvasElement
 // 所有加载覆盖共用预算；不按触屏或谱面复杂度降低画质，也不随 DPR 反复解码。
 function __pkgStorySampleSize(w,h){
   if(!(w>0&&h>0&&Number.isFinite(w)&&Number.isFinite(h)))return null;
-  const k=Math.min(1,2560/Math.max(w,h),Math.sqrt(4147200/(w*h)));
+  const low=!!window.__milIsLowMemoryMode?.(),maxSide=low?1280:2560,maxPixels=low?1048576:4147200;
+  const k=Math.min(1,maxSide/Math.max(w,h),Math.sqrt(maxPixels/(w*h)));
   return {width:Math.max(1,Math.floor(w*k)),height:Math.max(1,Math.floor(h*k))};
 }
 window.__milStoryboardSampleSize=__pkgStorySampleSize;
@@ -71,7 +72,7 @@ storyImage=function(data){
   if(data==='builtin.rect'||data==='builtin.round_rect'||data==='builtin.line')return __pkgBuiltinShape(data);
   const builtinKey=__pkgBuiltinStoryMap[data];if(builtinKey){const bi=imgFor(builtinKey);return bi&&bi.complete&&bi.naturalWidth?bi:null}
   let rec=storyCache.get(data);if(rec){const d=rec.drawable||rec.img;return __pkgStoryDrawableReady(d)?d:null}
-  const img=new Image();img.decoding='async';rec={img,drawable:null,failed:false,source:'',sourceWidth:0,sourceHeight:0};img.onload=()=>{if(storyCache.get(data)!==rec)return;rec.sourceWidth=img.naturalWidth;rec.sourceHeight=img.naturalHeight;rec.drawable=window.__milSampleStoryboard(img);if(rec.drawable!==img)rec.img=null;render()};img.onerror=()=>{rec.failed=true};const sf=__pkgResolveStoryboardFile(data),resolved=sf?__pkgObjectUrl(sf):(__pkgCurrentHasStoryboardDir()?null:__milAssetUrl(data));let src=resolved||data;if(!/^data:|^blob:|^https?:|^\.\//i.test(src)&&!src.includes('/'))src='./'+src;rec.source=src;storyCache.set(data,rec);img.src=src;return null;
+  const img=new Image();img.decoding='async';rec={img,drawable:null,failed:false,source:'',sourceWidth:0,sourceHeight:0};img.onload=()=>{if(storyCache.get(data)!==rec)return;rec.sourceWidth=img.naturalWidth;rec.sourceHeight=img.naturalHeight;rec.drawable=window.__milSampleStoryboard(img);if(rec.drawable!==img)rec.img=null;render()};img.onerror=()=>{rec.failed=true};const sf=__pkgResolveStoryboardFile(data),resolved=sf?__pkgObjectUrl(sf):(__pkgCurrentHasStoryboardDir()?null:__milAssetUrl(data));let src=resolved||data;if(!/^data:|^blob:|^https?:|^\.\//i.test(src)&&!src.includes('/'))src='./'+src;rec.source=src;storyCache.set(data,rec);if(window.__milIsLowMemoryMode?.()&&storyCache.size>16){const oldest=storyCache.keys().next().value;if(oldest!==data)storyCache.delete(oldest)}img.src=src;return null;
 };
 
 

@@ -1,0 +1,31 @@
+.gameResultOverlay{position:absolute;inset:0;z-index:120;display:none;overflow:hidden;background:#08090c;color:#f7f7f8;font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC",sans-serif;container-type:size}
+.gameResultOverlay.show{display:block}
+.gameResultBackdrop{position:absolute;inset:0;background-position:center;background-size:cover;filter:brightness(.36);transform:scale(1.015)}
+.gameResultShade{position:absolute;inset:0;background:linear-gradient(90deg,#0006,transparent 55%,#0004),linear-gradient(0deg,#000d,transparent 75%)}
+.gameResultHeader{position:absolute;z-index:3;top:6%;left:3.5%;right:3.5%;display:flex;align-items:center;gap:2.5cqw}
+.gameResultRestart{flex:none;width:5.7cqw;height:5.7cqw;min-width:32px;min-height:32px;max-width:110px;max-height:110px;border:2px solid #ffffff80;border-radius:50%;background:transparent;color:#fff;padding:0;font:300 clamp(22px,3.4cqw,64px)/1 system-ui;cursor:pointer}
+.gameResultRestart:hover{background:#ffffff14}.gameResultRestart:focus-visible{outline:3px solid #b5d6ff;outline-offset:4px}
+.gameResultSong{flex:1;min-width:0}.gameResultSongTitle{font-size:clamp(14px,1.85cqw,40px);letter-spacing:.035em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gameResultDifficulty{margin-top:.5cqw;font-size:clamp(10px,1.35cqw,27px);letter-spacing:.06em;color:#ffffffa6}
+.gameResultProfile{display:flex;align-items:center;gap:1.6cqw;flex:none}.gameResultIdentity{text-align:right;font-size:clamp(12px,1.5cqw,30px);line-height:1.65}
+.gameResultReality{white-space:nowrap;font-variant-numeric:tabular-nums;color:#fffc}.gameResultReality span{display:inline-block;margin-right:.7cqw;padding:.02em .65em;border-radius:999px;background:#fff;color:#34313f;font-size:.64em;font-weight:600;vertical-align:middle}
+.gameResultAvatar{width:5.6cqw;height:5.6cqw;min-width:34px;min-height:34px;border-radius:50%;object-fit:cover}
+.gameResultContent{position:absolute;z-index:2;left:8%;right:8%;top:30%;bottom:20%;display:grid;grid-template-columns:1.1fr 1fr;gap:5.5%;align-items:center}
+.gameResultLeft,.gameResultRight{min-width:0}.gameResultCoverFrame{width:100%;aspect-ratio:16/9;border-radius:2cqw;overflow:hidden;background:#ffffff0a;box-shadow:0 1cqw 3cqw #0005}
+.gameResultCover{display:block;width:100%;height:100%;object-fit:cover}.gameResultCover.noImage{visibility:hidden}
+.gameResultScoreRow{display:flex;align-items:center;gap:1cqw;margin-left:-.8cqw;min-width:0}.gameResultGrade{order:-1;width:7cqw;height:7cqw;object-fit:contain;flex:none}
+.gameResultScore{font:400 clamp(18px,3.8cqw,80px)/1.1 ui-sans-serif,system-ui;letter-spacing:.035em;font-variant-numeric:tabular-nums;color:#e4e4ed}
+[data-achievement="ap"] .gameResultScore{background:linear-gradient(135deg,#88caff,#e1beff);background-clip:text;-webkit-background-clip:text;color:transparent}
+[data-achievement="fc"] .gameResultScore{color:#91e2d8}
+.gameResultAcc{font-size:clamp(10px,1.45cqw,28px);margin:-.5cqw 0 3cqw 7.2cqw;color:#ffffffb5;font-variant-numeric:tabular-nums}
+.gameResultJudges{display:grid;gap:1.1cqw}.gameResultJudge{height:3.8cqw;min-height:24px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2.4cqw;border-radius:999px;font-size:clamp(10px,1.6cqw,32px);font-variant-numeric:tabular-nums;box-sizing:border-box;white-space:nowrap}
+.gameResultJudge b{font-weight:500}.gameResultPerfect{background:linear-gradient(100deg,#8ec9ff,#ddc1fb);color:#080a10}.gameResultGood{background:linear-gradient(100deg,#84ffd1,#88c9ff);color:#07120f}.gameResultBad{border:2px solid #ffffff60;background:#0002}
+.gameResultLightning{margin:1cqw 0 0;font-size:clamp(10px,1cqw,18px);color:#d5d9e5}
+@container (max-aspect-ratio:1/1){
+ .gameResultHeader{top:4%;gap:3cqw}.gameResultSongTitle{font-size:3.5cqw}.gameResultDifficulty{font-size:2.7cqw}.gameResultIdentity{font-size:2.8cqw}.gameResultAvatar{display:none}
+ .gameResultContent{top:22%;bottom:10%;grid-template-columns:1fr;gap:4cqh;align-content:center}
+ .gameResultCoverFrame{max-height:28cqh;aspect-ratio:16/9;border-radius:4cqw}
+ .gameResultScore{font-size:8.5cqw}.gameResultGrade{width:15cqw;height:15cqw}.gameResultAcc{font-size:3.5cqw;margin:-1cqw 0 5cqw 15cqw}
+ .gameResultJudge{height:9cqw;font-size:3.7cqw;padding:0 5cqw}.gameResultJudges{gap:2.5cqw}
+}
+@container (max-height:220px){.gameResultHeader{top:3%}.gameResultAvatar{display:none}.gameResultContent{top:29%;bottom:5%}.gameResultAcc{margin-bottom:1cqw}.gameResultJudge{min-height:18px;height:2.8cqw}.gameResultJudges{gap:.6cqw}}

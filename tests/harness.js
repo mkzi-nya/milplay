@@ -11,7 +11,7 @@ function createHarness(root,opts={}){
   const canvasContext=()=>new Proxy({measureText:s=>({width:String(s).length*20}),createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),globalAlpha:1},{get:(o,k)=>k in o?o[k]:noop});
   let serial=0;
   class Element{
-    constructor(tag='div'){this.tagName=tag.toUpperCase();this.style={};this.dataset={};this.children=[];this.listeners=new Map();this.width=1280;this.height=720;this.value='';this.options=[];this.paused=true;this.currentTime=0;this.duration=300;this.classes=new Set();this.classList={add:(...a)=>a.forEach(x=>this.classes.add(x)),remove:(...a)=>a.forEach(x=>this.classes.delete(x)),contains:x=>this.classes.has(x),toggle:(x,on)=>{on=on??!this.classes.has(x);on?this.classes.add(x):this.classes.delete(x);return on}}}
+    constructor(tag='div'){this.tagName=tag.toUpperCase();this.style={setProperty:(k,v)=>{this.style[k]=v},removeProperty:k=>{delete this.style[k]}};this.dataset={};this.children=[];this.listeners=new Map();this.width=1280;this.height=720;this.value='';this.options=[];this.paused=true;this.currentTime=0;this.duration=300;this.classes=new Set();this.classList={add:(...a)=>a.forEach(x=>this.classes.add(x)),remove:(...a)=>a.forEach(x=>this.classes.delete(x)),contains:x=>this.classes.has(x),toggle:(x,on)=>{on=on??!this.classes.has(x);on?this.classes.add(x):this.classes.delete(x);return on}}}
     getContext(){return this.ctx||(this.ctx=canvasContext())}
     getBoundingClientRect(){return {left:0,top:0,right:1280,bottom:720,width:1280,height:720}}
     get clientWidth(){return this.width} get clientHeight(){return this.height}

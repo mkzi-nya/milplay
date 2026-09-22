@@ -1,0 +1,3 @@
+body[data-mode="play"] #stage{cursor:crosshair}
+body[data-mode="play"] .stageWrap{touch-action:none!important;-webkit-user-select:none!important;user-select:none!important}
+body[data-mode="play"] #autoplayLabel{white-space:nowrap}

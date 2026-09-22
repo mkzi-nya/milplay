@@ -1,0 +1,65 @@
+html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll-behavior:none!important}
+/* Play-mode editor-control hiding lives in base.css + play-controls.css; this file only
+   owns the page-enlarged fallback shell. */
+
+/* The enlarged player is literally the existing edit-mode stage promoted to a fixed layer. */
+.stageWrap.playExpanded{
+  position:fixed!important;
+  inset:0!important;
+  z-index:100000!important;
+  width:100vw!important;
+  height:100vh!important;
+  height:100dvh!important;
+  margin:0!important;
+  border-radius:0!important;
+  background:#05070c var(--mil-stage-art) center/cover no-repeat!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  touch-action:none!important;
+}
+.stageWrap.playExpanded::before,.stageWrap.nativePlayFullscreen::before{content:"";position:absolute;inset:-24px;background:inherit;background-image:var(--mil-stage-art);background-size:cover;background-position:center;filter:blur(24px);opacity:.72;transform:scale(1.08);z-index:0;pointer-events:none}
+.stageWrap.playExpanded .stageInner,.stageWrap.nativePlayFullscreen .stageInner{z-index:1}
+.stageWrap.playExpanded.customStageRatio .stageInner{width:min(100vw,calc(100dvh * var(--mil-stage-ratio,16/9)))!important;height:min(100dvh,calc(100vw / var(--mil-stage-ratio,16/9)))!important;aspect-ratio:var(--mil-stage-ratio,16/9)!important}
+.stageWrap.playExpanded .stageInner{
+  position:relative!important;
+  left:auto!important;top:auto!important;
+  width:min(100vw,calc(100dvh * 16 / 9))!important;
+  height:min(100dvh,calc(100vw * 9 / 16))!important;
+  aspect-ratio:16/9!important;
+  transform:none!important;
+  transform-origin:50% 50%!important;
+  background:#05070c!important;
+  flex:0 0 auto!important;
+}
+.stageWrap.playExpanded #stage{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  aspect-ratio:16/9!important;
+  transform:none!important;
+  object-fit:contain!important;
+}
+/* Hide every old stage HUD/tool while enlarged; only the new play controls are shown. */
+.stageWrap.playExpanded .fsLeft,
+.stageWrap.playExpanded .corner{display:none!important}
+
+.playExpandedToggle{display:none;position:absolute;z-index:100004;top:10px;min-height:38px;height:38px;padding:0 13px;border:1px solid rgba(255,255,255,.24);border-radius:10px;background:rgba(0,0,0,.68);backdrop-filter:blur(8px);color:#fff;font-weight:800;line-height:36px;touch-action:manipulation}
+.playExpandedToggle{right:10px;min-width:42px;font-size:19px}
+.playExpandedSeek{display:none!important;pointer-events:none!important}
+.stageWrap.playExpanded .playExpandedToggle{display:block}
+/* Pause / shrink buttons sit above the stage. */
+.stageWrap.playExpanded .playExpandedToggle{pointer-events:auto}
+
+/* 命中层高于顶部白条；显式清除通用按钮外框，隐藏 HUD 只淡出双白线。 */
+.hudPause{position:absolute;z-index:9;left:clamp(8px,2%,28px);top:0;width:28px;min-width:28px;height:28px;min-height:28px;box-sizing:border-box;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;appearance:none;touch-action:none;cursor:pointer}
+.hudPause:hover,.hudPause:active{background:transparent;transform:none;box-shadow:none}
+.hudPause::before{content:"";position:absolute;left:9.5px;top:8px;width:9px;height:12px;box-sizing:border-box;border-left:2px solid #fff;border-right:2px solid #fff;opacity:1;pointer-events:none}
+.hudPause[data-hud-visible="false"]::before{opacity:0}
+.hudPause:focus-visible{outline:1px solid #fff;outline-offset:1px}
+body:not([data-mode="play"]) .hudPause{display:none}
+
+/* Do not allow any historical portrait-fallback transform to affect the new enlarged mode. */
+.stageWrap.playExpanded.landscapeFallback .stageInner,
+.stageWrap.playExpanded.landscapeFallback #stage{transform:none!important}

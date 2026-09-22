@@ -5,7 +5,7 @@ const MIL_WIDTH=1920, MIL_HEIGHT=1080, SPEED_UNIT=120, FLOW_SPEED=1.66, NOTE_SIZ
 const LINE_W=8, LINE_HEAD_SIZE=96, LINE_HEAD_CONNECT_POINT=334, HOLD_CUT_PADDING=668, MIN_HOLD_BODY_PX=2, HOLD_VISIBLE_AREA_MULT=4, LOOKAHEAD=10, LOOKBACK=1;
 // 画质预算集中于此：游玩 DPR 不超过设备值且最高为 2，主画布约 4.15MP；编辑保留原性能档位。
 // tint 仅按目标栅格取样；单个复用缓冲最多 4MiB RGBA，并限制极长边。
-const RENDER_QUALITY=Object.freeze({maxDpr:2,maxStagePixels:1920*1080*2,mobileEditDpr:1.25,heavyMobileEditDpr:1,heavyDesktopEditDpr:1.5,maxTintPixels:1024*1024,maxTintSide:4096});
+const RENDER_QUALITY=Object.freeze({maxDpr:2,maxStagePixels:1920*1080*2,lowMemoryDpr:1,lowMemoryStagePixels:960*540,mobileEditDpr:1.25,heavyMobileEditDpr:1,heavyDesktopEditDpr:1.5,maxTintPixels:1024*1024,maxTintSide:4096,lowMemoryTintPixels:512*512,lowMemoryTintSide:2048});
 const POS_X=0,POS_Y=1,TRANSPARENCY=2,SIZE=3,ROTATION=4,FLOW=5,REL_X=6,REL_Y=7,LINE_BODY_ALPHA=8,LINE_HEAD_ALPHA=9,SB_WIDTH=10,SB_HEIGHT=11,SPEED=12,WHOLE_ALPHA=13,SB_LB_X=14,SB_LB_Y=15,SB_RB_X=16,SB_RB_Y=17,SB_LT_X=18,SB_LT_Y=19,SB_RT_X=20,SB_RT_Y=21,COLOR=22,VISIBLE_AREA=23;
 const BEARER_LINE=0,BEARER_NOTE=1,BEARER_SB=2, NOTE_HIT=0, NOTE_DRAG=1, NOTE_FRACTURE=2;
 const LINE_DEFAULTS={0:0,1:-350,2:1,3:1,4:90,5:9,6:0,7:0,8:1,9:1,12:1,13:1,22:0xffffffff,23:Math.hypot(1920,1080)*1.5};
@@ -13,9 +13,10 @@ const NOTE_DEFAULTS={0:0,1:0,2:1,3:1,4:0,5:1,6:0,7:0,12:0,22:0xffffffff};
 const SB_DEFAULTS={0:0,1:0,2:1,3:1,4:0,6:0,7:0,10:1,11:1,14:-.5,15:-.5,16:.5,17:-.5,18:-.5,19:.5,20:.5,21:.5,22:0xffffffff};
 const VIS_KEYS=new Set([TRANSPARENCY,LINE_BODY_ALPHA,LINE_HEAD_ALPHA,WHOLE_ALPHA]); const SB_DISTORT_KEYS=new Set([SB_LB_X,SB_LB_Y,SB_RB_X,SB_RB_Y,SB_LT_X,SB_LT_Y,SB_RT_X,SB_RT_Y]); const BACKGROUND_DIM_ALPHA=155/255; const RENDER_LAYER_ORDER='illustration -> storyboard layer 0 -> black mask -> storyboard layer 1 -> line -> hold -> tap -> drag/fracture -> storyboard layer 2 -> combo -> distorted storyboard';
 const DB='milthm-hand-editor-full-render-v2', STORE='store', SAVE_KEY='last-edit';
-const els={playModeTab:id('playModeTab'),editModeTab:id('editModeTab'),modeBadge:id('modeBadge'),playModeBar:id('playModeBar'),showHandsLabel:id('showHandsLabel'),showHandsToggle:id('showHandsToggle'),fileInput:id('fileInput'),dropZone:id('dropZone'),status:id('status'),restoreBar:id('restoreBar'),restoreYes:id('restoreYes'),restoreNo:id('restoreNo'),loadSavedBtn:id('loadSavedBtn'),clearSavedBtn:id('clearSavedBtn'),playerCard:id('playerCard'),songTitle:id('songTitle'),songSub:id('songSub'),statNotes:id('statNotes'),stageWrap:id('stageWrap'),stageInner:id('stageInner'),stage:id('stage'),fsPlayBtn:id('fsPlayBtn'),fsBack1Btn:id('fsBack1Btn'),fullscreenBtn:id('fullscreenBtn'),resetViewBtn:id('resetViewBtn'),playBtn:id('playBtn'),pauseEditBtn:id('pauseEditBtn'),back1Btn:id('back1Btn'),forward1Btn:id('forward1Btn'),timeSlider:id('timeSlider'),timeInput:id('timeInput'),durationLabel:id('durationLabel'),rateSelect:id('rateSelect'),rateInput:id('rateInput'),audioDelayInput:id('audioDelayInput'),audioVolumeInput:id('audioVolumeInput'),bgBrightnessInput:id('bgBrightnessInput'),mediaName:id('mediaName'),audioPlayer:id('audioPlayer'),infoTime:id('infoTime'),infoCombo:id('infoCombo'),infoRender:id('infoRender'),infoAutosave:id('infoAutosave'),};
+const els={playModeTab:id('playModeTab'),editModeTab:id('editModeTab'),modeBadge:id('modeBadge'),playModeBar:id('playModeBar'),lowMemoryToggle:id('lowMemoryToggle'),showHandsLabel:id('showHandsLabel'),showHandsToggle:id('showHandsToggle'),fileInput:id('fileInput'),dropZone:id('dropZone'),status:id('status'),restoreBar:id('restoreBar'),restoreYes:id('restoreYes'),restoreNo:id('restoreNo'),loadSavedBtn:id('loadSavedBtn'),clearSavedBtn:id('clearSavedBtn'),playerCard:id('playerCard'),songTitle:id('songTitle'),songSub:id('songSub'),statNotes:id('statNotes'),stageWrap:id('stageWrap'),stageInner:id('stageInner'),stage:id('stage'),fsPlayBtn:id('fsPlayBtn'),fsBack1Btn:id('fsBack1Btn'),fullscreenBtn:id('fullscreenBtn'),resetViewBtn:id('resetViewBtn'),playBtn:id('playBtn'),pauseEditBtn:id('pauseEditBtn'),back1Btn:id('back1Btn'),forward1Btn:id('forward1Btn'),timeSlider:id('timeSlider'),timeInput:id('timeInput'),durationLabel:id('durationLabel'),rateSelect:id('rateSelect'),rateInput:id('rateInput'),audioDelayInput:id('audioDelayInput'),audioVolumeInput:id('audioVolumeInput'),bgBrightnessInput:id('bgBrightnessInput'),mediaName:id('mediaName'),audioPlayer:id('audioPlayer'),infoTime:id('infoTime'),infoCombo:id('infoCombo'),infoRender:id('infoRender'),infoAutosave:id('infoAutosave'),};
 const ctx=els.stage.getContext('2d',{alpha:false});
-const state={appMode:'play',showHandTextures:false,editRate:1,editAudioDelay:.11,chart:null,runtime:null,fileName:'chart.json',currentTime:0,duration:0,rate:1,playing:false,lastTick:performance.now(),viewScale:1,panX:0,panY:0,visibleHit:[],inspectHit:[],showHidden:false,hiddenObjects:new Set(),pointerMap:new Map(),pinch:null,saveTimer:0,images:{},imagesReady:false,parseReport:'',hover:null,backgroundImage:null,bgUrl:'',bgName:'',bgBrightness:.6,mediaUrl:'',mediaName:'',audioDelay:.11,audioVolume:1,mediaReady:false,mediaSyncing:false,};
+function __milDefaultLowMemory(){const nav=navigator||{},ua=String(nav.userAgent||'');let saved='';try{saved=localStorage.getItem('mil-low-memory')||''}catch{}if(saved==='1'||saved==='0')return saved==='1';return Number(nav.deviceMemory)<=1||(Number(nav.hardwareConcurrency)>0&&Number(nav.hardwareConcurrency)<=2)||/OS 12_[0-9_]+.*like Mac OS X/i.test(ua)}
+const state={appMode:'play',lowMemory:__milDefaultLowMemory(),showHandTextures:false,editRate:1,editAudioDelay:.11,chart:null,runtime:null,fileName:'chart.json',currentTime:0,duration:0,rate:1,playing:false,lastTick:performance.now(),viewScale:1,panX:0,panY:0,visibleHit:[],inspectHit:[],showHidden:false,hiddenObjects:new Set(),pointerMap:new Map(),pinch:null,saveTimer:0,images:{},imagesReady:false,parseReport:'',hover:null,backgroundImage:null,bgUrl:'',bgName:'',bgBrightness:.6,mediaUrl:'',mediaName:'',audioDelay:.11,audioVolume:1,mediaReady:false,mediaSyncing:false,};
 
 const CHART_RE=/\.(json|js|txt)$/i;
 const JSONL_RE=/\.jsonl$/i;
@@ -71,12 +72,12 @@ function resizeCanvas(){
   const rotated=!!(els.stageWrap?.classList?.contains('nativeLandscapeFallback')&&matchMedia?.('(orientation:portrait)')?.matches),
         coarse=(navigator.maxTouchPoints||0)>0||matchMedia?.('(pointer:coarse)')?.matches,
         heavy=!!state.runtime&&((state.runtime.notes?.length||0)>2500||(state.runtime.storyboards?.length||0)>100),
-        cap=state.appMode==='play'?RENDER_QUALITY.maxDpr:(coarse?(heavy?RENDER_QUALITY.heavyMobileEditDpr:RENDER_QUALITY.mobileEditDpr):(heavy?RENDER_QUALITY.heavyDesktopEditDpr:RENDER_QUALITY.maxDpr)),
+         cap=state.lowMemory?RENDER_QUALITY.lowMemoryDpr:(state.appMode==='play'?RENDER_QUALITY.maxDpr:(coarse?(heavy?RENDER_QUALITY.heavyMobileEditDpr:RENDER_QUALITY.mobileEditDpr):(heavy?RENDER_QUALITY.heavyDesktopEditDpr:RENDER_QUALITY.maxDpr))),
         rawDpr=Number(window.devicePixelRatio),dpr=Math.min(Number.isFinite(rawDpr)&&rawDpr>0?rawDpr:1,cap),key=`${dpr}:${rotated}`;
   if(!__stageResizeDirty&&key===__stageResizeKey&&els.stage.width>0&&els.stage.height>0)return;
   const r=els.stage.getBoundingClientRect(),cssW=Math.max(1,rotated?els.stage.clientWidth:r.width),cssH=Math.max(1,rotated?els.stage.clientHeight:r.height);
   // CSS 旋转使用变换前尺寸；面积预算只缩放一次，避免逐轴限制造成长宽比变化。
-  const scale=Math.min(dpr,Math.sqrt(RENDER_QUALITY.maxStagePixels/(cssW*cssH))),w=Math.max(1,Math.floor(cssW*scale)),h=Math.max(1,Math.floor(cssH*scale));
+   const stagePixels=state.lowMemory?RENDER_QUALITY.lowMemoryStagePixels:RENDER_QUALITY.maxStagePixels,scale=Math.min(dpr,Math.sqrt(stagePixels/(cssW*cssH))),w=Math.max(1,Math.floor(cssW*scale)),h=Math.max(1,Math.floor(cssH*scale));
   if(els.stage.width!==w||els.stage.height!==h){els.stage.width=w;els.stage.height=h}
   __stageResizeKey=key;__stageResizeDirty=false;
 }
@@ -88,7 +89,7 @@ function screenMapHit(h){const out={...h};if('x' in out&&'y' in out){const p=cha
 
 function localToScreen(w,h,x,y){return{x:w/2+x,y:h/2-y}} function milX(x,w){return x/MIL_WIDTH*w} function milY(y,h){return y/MIL_HEIGHT*h} function rot(x,y,deg){const r=deg*Math.PI/180,c=Math.cos(r),s=Math.sin(r);return{x:x*c-y*s,y:x*s+y*c}}
 function applyLineWorld(st,w,h,xw,yw){const sx=xw*(w/MIL_WIDTH)*st.scale, sy=-yw*(h/MIL_HEIGHT)*st.scale, r=rot(sx,sy,st.angle);return{x:st.center.x+r.x,y:st.center.y+r.y}} function drawRotImg(img,cx,cy,w,h,deg,alpha=1){if(!img||!img.complete||!img.naturalWidth)return;ctx.save();ctx.globalAlpha*=alpha;ctx.translate(cx,cy);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore()}
-function drawCover(img,w,h){const iw=img.naturalWidth||1,ih=img.naturalHeight||1,sc=Math.max(w/iw,h/ih),dw=iw*sc,dh=ih*sc;ctx.drawImage(img,(w-dw)/2,(h-dh)/2,dw,dh)}
+function drawCover(img,w,h){const iw=img.naturalWidth||img.width||1,ih=img.naturalHeight||img.height||1,sc=Math.max(w/iw,h/ih),dw=iw*sc,dh=ih*sc;ctx.drawImage(img,(w-dw)/2,(h-dh)/2,dw,dh)}
 function drawOldBg(w,h){ctx.fillStyle='rgb(18,20,28)';ctx.fillRect(0,0,w,h);for(let y=0;y<h;y+=4){const a=(20+40*y/Math.max(1,h))/255;ctx.fillStyle=`rgba(30,38,55,${a})`;ctx.fillRect(0,y,w,4)}}
 function drawBg(w,h){drawOldBg(w,h);const img=state.backgroundImage;if(img&&img.complete&&img.naturalWidth){drawCover(img,w,h);ctx.fillStyle=`rgba(0,0,0,${1-state.bgBrightness})`;ctx.fillRect(0,0,w,h)}}
 function drawBackgroundDim(w,h){ctx.save();ctx.fillStyle=`rgba(0,0,0,${BACKGROUND_DIM_ALPHA})`;ctx.fillRect(0,0,w,h);ctx.restore()}
@@ -160,7 +161,7 @@ async function setBackgroundFile(file){
     throw e;
   }
   if(state.bgUrl!==url)return;
-  state.backgroundImage=img;
+   state.backgroundImage=state.lowMemory&&window.__milSampleStoryboard?window.__milSampleStoryboard(img):img;
   /* Fullscreen letterbox uses the same package artwork, never a separate guessed image. */
   els.stageWrap?.style.setProperty('--mil-stage-art',`url("${url.replace(/"/g,'%22')}")`);
   updateControls();

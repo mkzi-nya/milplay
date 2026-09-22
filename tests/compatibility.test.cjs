@@ -24,6 +24,12 @@ test('stage env follows CSS dimensions independent of DPR, and can be replayed d
   const chart=await h.run('milizeJsToJson(`m.withProperty("w",env("stage.width"));m.withProperty("h",env("stage.height"));m.withProperty("seed",env("time"));m.line()`,{"time":"42"})');
   assert.deepEqual({...chart.meta},{w:'400',h:'900',seed:'42'});
 });
+test('low-memory mode lowers canvas and storyboard budgets',()=>{
+  const h=setup();h.get('stage').getBoundingClientRect=()=>({width:1920,height:1080});h.context.devicePixelRatio=3;
+  h.run('state.lowMemory=true;markStageResize();resizeCanvas()');
+  assert.deepEqual([h.get('stage').width,h.get('stage').height],[960,540]);
+  assert.deepEqual({...h.run('window.__milStoryboardSampleSize(4096,2304)')},{width:1280,height:720});
+});
 test('four-corner picture uses two clipped triangles; collapsed geometry is skipped',()=>{
   const h=setup();h.run(`window.transforms=[];window.clips=0;ctx.transform=(...a)=>transforms.push(a);ctx.clip=()=>clips++;window.sb={index:0,type:0,data:'builtin.rect',layer:1,distorted:true};window.rt={storyboards:[sb],sbValue:(s,k)=>SB_DEFAULTS[k]??0};drawStoryboardLayer(rt,1,0,1920,1080);`);
   assert.equal(h.run('clips'),2);assert.equal(h.run('transforms.every(a=>a.every(Number.isFinite))'),true);

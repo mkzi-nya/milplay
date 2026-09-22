@@ -1,0 +1,44 @@
+/* Play fullscreen is an actual fullscreen surface. The old fixed 16:9 enlarged mode
+   remains only as an API fallback when a browser cannot fullscreen arbitrary elements. */
+.stageWrap.nativePlayFullscreen,.stageWrap:fullscreen,.stageWrap:-webkit-full-screen{
+  position:fixed!important;inset:0!important;z-index:2147483000!important;
+  width:100vw!important;height:100vh!important;height:100dvh!important;
+  margin:0!important;padding:0!important;border:0!important;border-radius:0!important;
+  background:#05070c!important;overflow:hidden!important;touch-action:none!important;
+}
+.stageWrap.nativePlayFullscreen .stageInner,.stageWrap:fullscreen .stageInner,.stageWrap:-webkit-full-screen .stageInner{
+  position:absolute!important;left:50%!important;top:50%!important;inset:auto!important;
+  width:min(100vw,calc(100dvh * 16 / 9))!important;height:min(100dvh,calc(100vw * 9 / 16))!important;
+  max-width:none!important;max-height:none!important;aspect-ratio:16/9!important;transform:translate(-50%,-50%)!important;
+}
+.stageWrap.customStageRatio.nativePlayFullscreen .stageInner,.stageWrap.customStageRatio:fullscreen .stageInner,.stageWrap.customStageRatio:-webkit-full-screen .stageInner{
+  inset:auto!important;left:50%!important;top:50%!important;
+  width:min(100vw,calc(100dvh * var(--mil-stage-ratio,16/9)))!important;
+  height:min(100dvh,calc(100vw / var(--mil-stage-ratio,16/9)))!important;
+  transform:translate(-50%,-50%)!important;aspect-ratio:var(--mil-stage-ratio,16/9)!important;
+}
+.stageWrap.customStageRatio.nativePlayFullscreen::before,.stageWrap.customStageRatio:fullscreen::before,.stageWrap.customStageRatio:-webkit-full-screen::before{content:"";position:absolute;inset:-24px;background:#05070c var(--mil-stage-art) center/cover no-repeat;filter:blur(24px);opacity:.72;transform:scale(1.08);pointer-events:none}
+.stageWrap.customStageRatio.nativePlayFullscreen .stageInner,.stageWrap.customStageRatio:fullscreen .stageInner,.stageWrap.customStageRatio:-webkit-full-screen .stageInner{z-index:1}
+.stageWrap.nativePlayFullscreen::before,.stageWrap:fullscreen::before,.stageWrap:-webkit-full-screen::before{content:"";position:absolute;inset:-24px;background:#05070c var(--mil-stage-art) center/cover no-repeat;filter:blur(24px);opacity:.72;transform:scale(1.08);pointer-events:none}
+.stageWrap.nativePlayFullscreen #stage,.stageWrap:fullscreen #stage,.stageWrap:-webkit-full-screen #stage{
+  display:block!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;
+  aspect-ratio:auto!important;object-fit:contain!important;transform:none!important;
+}
+.stageWrap.nativePlayFullscreen .fsLeft,.stageWrap.nativePlayFullscreen .corner,
+.stageWrap:fullscreen .fsLeft,.stageWrap:fullscreen .corner,
+.stageWrap:-webkit-full-screen .fsLeft,.stageWrap:-webkit-full-screen .corner,
+.stageWrap.nativePlayFullscreen .playExpandedToggle,.stageWrap.nativePlayFullscreen .playExpandedSeek,
+.stageWrap:fullscreen .playExpandedToggle,.stageWrap:fullscreen .playExpandedSeek,
+.stageWrap:-webkit-full-screen .playExpandedToggle,.stageWrap:-webkit-full-screen .playExpandedSeek{
+  display:none!important;
+}
+.nativeFsExit{display:none;position:absolute;z-index:2147483640;right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));width:38px;min-width:38px;height:38px;min-height:38px;padding:0;border-radius:10px;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:19px;line-height:36px;touch-action:manipulation}
+.stageWrap.nativePlayFullscreen .nativeFsExit,.stageWrap:fullscreen .nativeFsExit,.stageWrap:-webkit-full-screen .nativeFsExit{display:block}
+@media (orientation:portrait){
+  body[data-mode="play"] .stageWrap.nativeLandscapeFallback .stageInner{
+    left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;
+    width:100dvh!important;height:100vw!important;transform:translate(-50%,-50%) rotate(90deg)!important;
+    transform-origin:50% 50%!important;
+  }
+  body[data-mode="play"] .stageWrap.nativeLandscapeFallback #stage{width:100%!important;height:100%!important;transform:none!important}
+}
