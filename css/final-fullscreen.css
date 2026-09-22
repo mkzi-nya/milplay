@@ -7,9 +7,9 @@
   background:#05070c!important;overflow:hidden!important;touch-action:none!important;
 }
 .stageWrap.nativePlayFullscreen .stageInner,.stageWrap:fullscreen .stageInner,.stageWrap:-webkit-full-screen .stageInner{
-   position:absolute!important;left:50%!important;top:50%!important;inset:auto!important;
-   width:100%!important;height:100%!important;
-   max-width:none!important;max-height:none!important;aspect-ratio:auto!important;transform:translate(-50%,-50%)!important;
+  position:absolute!important;left:50%!important;top:50%!important;inset:auto!important;
+  width:min(100vw,calc(100dvh * 16 / 9))!important;height:min(100dvh,calc(100vw * 9 / 16))!important;
+  max-width:none!important;max-height:none!important;aspect-ratio:16/9!important;transform:translate(-50%,-50%)!important;
 }
 .stageWrap.customStageRatio.nativePlayFullscreen .stageInner,.stageWrap.customStageRatio:fullscreen .stageInner,.stageWrap.customStageRatio:-webkit-full-screen .stageInner{
   inset:auto!important;left:50%!important;top:50%!important;
@@ -24,10 +24,6 @@
   display:block!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;
   aspect-ratio:auto!important;object-fit:contain!important;transform:none!important;
 }
-@supports (height:100dvh){
- .stageWrap.nativePlayFullscreen,.stageWrap:fullscreen,.stageWrap:-webkit-full-screen{height:100dvh!important}
- .stageWrap.nativePlayFullscreen .stageInner,.stageWrap:fullscreen .stageInner,.stageWrap:-webkit-full-screen .stageInner{width:min(100vw,calc(100dvh * 16 / 9))!important;height:min(100dvh,calc(100vw * 9 / 16))!important;aspect-ratio:16/9!important}
-}
 .stageWrap.nativePlayFullscreen .fsLeft,.stageWrap.nativePlayFullscreen .corner,
 .stageWrap:fullscreen .fsLeft,.stageWrap:fullscreen .corner,
 .stageWrap:-webkit-full-screen .fsLeft,.stageWrap:-webkit-full-screen .corner,
@@ -41,7 +37,7 @@
 @media (orientation:portrait){
   body[data-mode="play"] .stageWrap.nativeLandscapeFallback .stageInner{
     left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;
-    width:100vh!important;height:100vw!important;transform:translate(-50%,-50%) rotate(90deg)!important;
+    width:100dvh!important;height:100vw!important;transform:translate(-50%,-50%) rotate(90deg)!important;
     transform-origin:50% 50%!important;
   }
   body[data-mode="play"] .stageWrap.nativeLandscapeFallback #stage{width:100%!important;height:100%!important;transform:none!important}

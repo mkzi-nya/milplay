@@ -22,22 +22,10 @@
     document.documentElement.classList.remove('playExpandedRoot');
     document.body.classList.remove('playExpandedRoot');
   }
-  async function lockLandscape() {
-    try {
-      var _screen$orientation;
-      await ((_screen$orientation = screen.orientation) == null || _screen$orientation.lock == null ? void 0 : _screen$orientation.lock('landscape'));
-    } catch {}
-  }
-  function syncFallbackOrientation() {
-    var _window$matchMedia;
-    if (!isFallback()) return;
-    const portrait = (window.matchMedia == null || (_window$matchMedia = window.matchMedia('(orientation: portrait)')) == null ? void 0 : _window$matchMedia.matches) || innerHeight > innerWidth;
-    wrap.classList.toggle('nativeLandscapeFallback', portrait);
-  }
   async function unlockOrientation() {
     try {
-      var _screen$orientation2;
-      (_screen$orientation2 = screen.orientation) == null || _screen$orientation2.unlock == null || _screen$orientation2.unlock();
+      var _screen$orientation;
+      (_screen$orientation = screen.orientation) == null || _screen$orientation.unlock == null || _screen$orientation.unlock();
     } catch {}
   }
   async function unlockKeyboard() {
@@ -48,8 +36,6 @@
   }
   async function leave() {
     window.__gpEscPauseGuardUntil = 0;
-    /* If the result page is visible, shrinking is also an explicit result dismissal.
-       Suppression prevents the resize-triggered render at song end from reopening it. */
     try {
       window.__gpHideResult == null || window.__gpHideResult(true);
     } catch {}
@@ -83,15 +69,11 @@
       }
     } catch {}
     if (!nativeOk && !isNative()) wrap.classList.add('nativePlayFullscreen');
-    /* Chromium can lock Escape while fullscreen. This makes first Escape a gameplay
-       pause key; long/system Escape remains available to the browser. */
     if (isNative()) try {
       var _navigator$keyboard2;
       await ((_navigator$keyboard2 = navigator.keyboard) == null || _navigator$keyboard2.lock == null ? void 0 : _navigator$keyboard2.lock(['Escape']));
     } catch {}
-    // Use the actual screen ratio, including portrait and ultrawide screens.
-    await lockLandscape();
-    syncFallbackOrientation();
+    await unlockOrientation();
     requestAnimationFrame(() => {
       if (typeof markStageResize === 'function') markStageResize();
       resizeCanvas();
@@ -102,11 +84,7 @@
   window.__gpEnterGameplayFullscreen = enter;
   window.__gpGameplayFullscreenActive = () => isNative() || isFallback();
   requestLandscapeFullscreen = async function () {
-    if (isNative() || isFallback()) {
-      await leave();
-      return;
-    }
-    await enter();
+    if (isNative() || isFallback()) await leave();else await enter();
   };
   exitBtn.addEventListener('click', e => {
     e.preventDefault();
@@ -117,9 +95,6 @@
   });
   function sync() {
     if (!isNative() && !isFallback()) {
-      /* Some browsers reserve native Escape and exit fullscreen even after preventDefault.
-         If this was the first Escape used to pause, immediately preserve the gameplay
-         surface as the fixed fullscreen fallback. The next Escape removes it normally. */
       if ((Number(window.__gpEscPauseGuardUntil) || 0) > performance.now()) wrap.classList.add('nativePlayFullscreen');else {
         wrap.classList.remove('nativeLandscapeFallback');
         unlockKeyboard();
@@ -129,7 +104,7 @@
         } catch {}
       }
     }
-    if (isFallback()) syncFallbackOrientation();
+    if (isNative() || isFallback()) wrap.classList.remove('nativeLandscapeFallback');
     requestAnimationFrame(() => {
       if (typeof markStageResize === 'function') markStageResize();
       resizeCanvas();
