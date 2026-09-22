@@ -109,7 +109,7 @@ loadFiles=function(fileList){
   return pending;
 };
 async function __pkgLoadFiles(fileList){
-  const input=[...(fileList||[])];if(!input.length)return;setStatus('正在读取并验证完整谱面包…','warn');
+  const input=[...(fileList||[])];if(!input.length)return;if(typeof __milResetParseLog==='function')__milResetParseLog();setStatus('开始解析上传文件（共 '+input.length+' 个）…','warn');
   const expanded=await expandInputFiles(input);let files=expanded.files.filter(f=>f&&f.name&&!String(f.name).endsWith('/')),report=[...expanded.report];
    const found=await __milFindParseableChart(files),chartFile=found.file,parsed=found.parsed;
    if(!chartFile&&found.matches?.length)return;

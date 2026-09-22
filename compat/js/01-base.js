@@ -271,11 +271,7 @@ function setStatus(m, t = '') {
   }
   if (!els.parseLog) return;
   const text = String(m || '');
-  if (t === 'ok') {
-    els.parseLog.hidden = true;
-    return;
-  }
-  if (t !== 'err' && text === '') {
+  if (t === 'ok' || t !== 'err' && text === '') {
     els.parseLog.hidden = true;
     els.parseLog.value = '';
     return;
@@ -289,6 +285,12 @@ function setStatus(m, t = '') {
   els.parseLog.value += line + '\n';
   els.parseLog.hidden = false;
   els.parseLog.scrollTop = els.parseLog.scrollHeight;
+}
+function __milResetParseLog() {
+  if (els.parseLog) {
+    els.parseLog.value = '';
+    els.parseLog.hidden = true;
+  }
 }
 function toNum(v, def = 0) {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
