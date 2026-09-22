@@ -25,13 +25,16 @@ html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll
 .stageWrap.playExpanded .stageInner{
   position:relative!important;
   left:auto!important;top:auto!important;
-  width:min(100vw,calc(100dvh * 16 / 9))!important;
-  height:min(100dvh,calc(100vw * 9 / 16))!important;
-  aspect-ratio:16/9!important;
+   width:100%!important;
+   height:100%!important;
+   aspect-ratio:auto!important;
   transform:none!important;
   transform-origin:50% 50%!important;
   background:#05070c!important;
   flex:0 0 auto!important;
+}
+@supports (height:100dvh){
+ .stageWrap.playExpanded .stageInner{width:min(100vw,calc(100dvh * 16 / 9))!important;height:min(100dvh,calc(100vw * 9 / 16))!important;aspect-ratio:16/9!important}
 }
 .stageWrap.playExpanded #stage{
   display:block!important;
