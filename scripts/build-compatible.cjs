@@ -36,7 +36,13 @@ const preset = [require.resolve('@babel/preset-env'), {
 for (const name of fs.readdirSync(path.join(root, 'js'))) {
   if (path.extname(name) !== '.js') continue;
   const source = path.join(root, 'js', name);
-  const result = babel.transformFileSync(source, {
+  // Safari 12 does not decode WebP; checked-in PNGs preserve the same pixels.
+  const text = fs.readFileSync(source, 'utf8').replace(/assets\/([\w-]+)\.webp/g, (url, name) => {
+    const png = `assets/${name}.png`;
+    if (!fs.existsSync(path.join(root, png))) throw new Error(`Missing Safari texture: ${png}`);
+    return png;
+  });
+  const result = babel.transformSync(text, {
     filename: source,
     presets: [preset],
     comments: true,
@@ -49,6 +55,9 @@ for (const name of fs.readdirSync(path.join(root, 'js'))) {
 copyDirEntries(path.join(root, 'css'), cssOut, '.css');
 fs.copyFileSync(path.join(root, 'index.html'), path.join(out, 'index.html'));
 fs.copyFileSync(path.join(root, 'js', '00-ios12-runtime.js'), path.join(jsOut, '00-ios12-runtime.js'));
+const fflateRoot = path.resolve(path.dirname(require.resolve('fflate')), '..');
+fs.copyFileSync(path.join(fflateRoot, 'umd', 'index.js'), path.join(jsOut, 'fflate.js'));
+fs.copyFileSync(path.join(fflateRoot, 'LICENSE'), path.join(out, 'fflate-LICENSE'));
 
 const indexPath = path.join(out, 'index.html');
 let html = fs.readFileSync(indexPath, 'utf8');

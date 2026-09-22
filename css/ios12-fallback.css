@@ -1,50 +1,38 @@
-/* Fallbacks for Safari 12. Unsupported declarations in the main styles remain harmless. */
-.gameResultOverlay { top: 0; right: 0; bottom: 0; left: 0; }
-.gameResultBackdrop, .gameResultShade { top: 0; right: 0; bottom: 0; left: 0; }
-.gameResultContent { display: flex; }
-.gameResultLeft, .gameResultRight { flex: 1 1 0; }
-.gameResultCoverFrame { position: relative; height: 0; padding-bottom: 56.25%; }
-.gameResultCover { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
-.stageWrap { height: auto; }
-.lowMemoryStandalone { display: block; margin: 0 auto 12px; width: min(1220px, calc(100% - 16px)); color: #aaa; font-size: 13px; }
-.gameResultHeader { gap: 0; }
-.gameResultSong { margin-left: 2.5vw; }
-.gameResultProfile { margin-left: 2.5vw; }
-.gameResultSongTitle { font-size: 2.2vw; }
-.gameResultDifficulty { font-size: 1.5vw; }
-.gameResultIdentity { font-size: 1.6vw; }
-.gameResultRestart { width: 5.7vw; height: 5.7vw; font-size: 3.4vw; }
-.gameResultAvatar { width: 5.6vw; height: 5.6vw; }
-.gameResultScore { font-size: 3.8vw; }
-.gameResultScoreRow { gap: 0; }
-.gameResultGrade { width: 7vw; height: 7vw; margin-right: 1vw; }
-.gameResultAcc { font-size: 1.5vw; margin-left: 7.2vw; }
-.gameResultJudge { height: 3.8vw; font-size: 1.6vw; }
-.gameResultJudge + .gameResultJudge { margin-top: 1.1vw; }
-.gameResultLightning { font-size: 1vw; }
-
-@media (max-width: 600px), (orientation: portrait) {
-  .gameResultHeader { top: 4%; left: 4%; right: 4%; }
-  .gameResultContent { top: 22%; right: 8%; bottom: 10%; left: 8%; display: block; }
-  .gameResultCoverFrame { width: 100%; max-height: 28vh; }
-  .gameResultRight { margin-top: 4vw; }
-  .gameResultAvatar { display: none; }
-  .gameResultSongTitle { font-size: 3.5vw; }
-  .gameResultDifficulty { font-size: 2.7vw; }
-  .gameResultIdentity { font-size: 2.8vw; }
-  .gameResultScore { font-size: 8.5vw; }
-  .gameResultGrade { width: 15vw; height: 15vw; margin-right: 2vw; }
-  .gameResultAcc { font-size: 3.5vw; margin: -1vw 0 5vw 15vw; }
-  .gameResultJudge { height: 9vw; font-size: 3.7vw; padding: 0 5vw; }
-  .gameResultJudge + .gameResultJudge { margin-top: 2.5vw; }
+/* Only browsers missing these CSS features receive legacy layout rules. */
+@supports not (width: min(1px, 2px)) {
+  .wrap{width:100%;max-width:1220px;padding:14px 12px 22px}
+  h1{font-size:23px}
+  .nativeFsExit{top:8px;right:8px}
+  .hudPause{left:8px}
 }
-
-@media (max-height: 220px) {
-  .gameResultHeader { top: 3%; }
-  .gameResultContent { top: 29%; bottom: 5%; }
-  .gameResultJudge { height: 3vw; min-height: 18px; }
+@supports not (aspect-ratio: 16/9) {
+  .stageInner,.stageWrap.customStageRatio .stageInner{height:0;padding-bottom:calc(100% / var(--mil-stage-ratio,1.7777777778))}
+  .stageInner #stage{position:absolute;top:0;left:0;width:100%;height:100%}
+  /* An unknown :fullscreen selector invalidates a whole selector list in Safari 12. */
+  .stageWrap.nativePlayFullscreen{position:fixed!important;top:0!important;right:0!important;bottom:0!important;left:0!important;width:100vw!important;height:100vh!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;z-index:2147483000!important;overflow:hidden!important}
+  .stageWrap.playExpanded .stageInner,.stageWrap.nativePlayFullscreen .stageInner,.stageWrap:-webkit-full-screen .stageInner{position:absolute!important;padding-bottom:0;left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%)!important;max-width:none!important;max-height:none!important}
+  .stageWrap.nativePlayFullscreen .nativeFsExit{display:block}
+  .stageWrap.nativePlayFullscreen .fsLeft,.stageWrap.nativePlayFullscreen .corner,.stageWrap.nativePlayFullscreen .playExpandedToggle{display:none!important}
 }
-
-@supports (position: fixed) {
-  .stageWrap.nativePlayFullscreen { position: fixed; top: 0; right: 0; bottom: 0; left: 0; width: 100vw; height: 100vh; }
+@supports not (inset: 0) {
+  .stageWrap.nativePlayFullscreen{top:0!important;right:0!important;bottom:0!important;left:0!important}
+  .gameResultOverlay,.gameResultBackdrop,.gameResultShade{top:0;right:0;bottom:0;left:0}
+}
+.lowMemoryStandalone{display:block;margin:0 auto 12px;max-width:1220px;width:calc(100% - 16px);color:#aaa;font-size:13px}
+@supports not (width: 1cqw) {
+  .gameResultSong{margin-left:2.5vw}
+  .gameResultSongTitle{font-size:2.2vw}
+  .gameResultDifficulty,.gameResultIdentity{font-size:1.5vw}
+  .gameResultRestart{width:5.7vw;height:5.7vw;font-size:3.4vw}
+  .gameResultAvatar{width:5.6vw;height:5.6vw;margin-left:1.6vw}
+  .gameResultScore{font-size:3.8vw}
+  .gameResultGrade{width:7vw;height:7vw;margin-right:1vw}
+  .gameResultAcc{font-size:1.5vw;margin-left:7.2vw;margin-bottom:3vw}
+  .gameResultJudge{height:3.8vw;font-size:1.6vw;padding:0 2.4vw}
+  .gameResultJudge + .gameResultJudge{margin-top:1.1vw}
+  .gameResultLightning{font-size:1vw}
+}
+@supports not (aspect-ratio: 16/9) {
+  .gameResultCoverFrame{position:relative;height:0;padding-bottom:56.25%}
+  .gameResultCover{position:absolute;top:0;left:0;width:100%;height:100%}
 }

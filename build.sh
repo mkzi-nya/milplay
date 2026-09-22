@@ -1,16 +1,7 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-cd "$ROOT_DIR"
-
-if ! command -v npm >/dev/null 2>&1; then
-  printf '%s\n' '错误：未找到 npm，请先安装 Node.js。' >&2
-  exit 1
-fi
-
-# --no-bin-links also works on Android shared storage, where npm symlinks fail.
-npm install --no-bin-links
+#!/usr/bin/env sh
+# Rebuild the Safari 12 (iOS 12) compatibility output in compat/.
+# --bin-links=false matters on Android shared storage, where npm cannot create symlinks.
+set -e
+cd "$(dirname "$0")"
+[ -d node_modules/@babel/core ] || npm install --bin-links=false
 npm run build:compat
-
-printf '\n构建完成：%s/\n' "$ROOT_DIR/compat"

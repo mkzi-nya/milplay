@@ -101,7 +101,7 @@ window.__algebraStoryboardReviewSelfTest=function(){
   const fail=[],ok=(v,m)=>{if(!v)fail.push(m)};
   try{
     const ev={key:COLOR,fv:0xff0000ff,tv:0x00ff00ff,startSec:0,endSec:1,ease:0,press:0,custom:''},mid=rgbaFromUint(eventValue(ev,0,0.5));ok(mid[0]===127&&mid[1]===127&&mid[2]===0&&mid[3]===255,'RGBA channel interpolation');
-    const c=__algBuiltinShape('builtin.line');ok(c.width===512&&c.height===1,'builtin.line 512x1');ok(/^(data:image\/png;base64,|assets\/).+\.webp$/.test(__ALG_SB_BUILTIN_NOTE_SRC.extap)||/^data:image\/png;base64,/.test(__ALG_SB_BUILTIN_NOTE_SRC.extap),'dedicated reference builtin note texture');
+    const c=__algBuiltinShape('builtin.line');ok(c.width===512&&c.height===1,'builtin.line 512x1');ok(/^assets\/.+\.(webp|png)$/.test(__ALG_SB_BUILTIN_NOTE_SRC.extap)||/^data:image\/png;base64,/.test(__ALG_SB_BUILTIN_NOTE_SRC.extap),'dedicated reference builtin note texture');
     ok(Math.abs(__algTextPx(1280,720)-54)<1e-6,'Unity storyboard text scale');
     // 纯尺寸测试不解码大图；覆盖面积约束、超长细线、不放大和无效尺寸。
     for(const [w,h] of [[4096,2304],[2304,4096],[8192,8192],[100000,1],[1,100000],[512,1],[923,923],[2560,1620]]){

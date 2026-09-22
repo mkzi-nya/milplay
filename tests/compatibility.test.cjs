@@ -31,9 +31,9 @@ test('low-memory mode lowers canvas and storyboard budgets',()=>{
   assert.deepEqual({...h.run('window.__milStoryboardSampleSize(4096,2304)')},{width:1280,height:720});
 });
 test('four-corner picture uses two clipped triangles; collapsed geometry is skipped',()=>{
-  const h=setup();h.run(`window.transforms=[];window.clips=0;ctx.transform=(...a)=>transforms.push(a);ctx.clip=()=>clips++;window.sb={index:0,type:0,data:'builtin.rect',layer:1,distorted:true};window.rt={storyboards:[sb],sbValue:(s,k)=>SB_DEFAULTS[k]??0};drawStoryboardLayer(rt,1,0,1920,1080);`);
+  const h=setup();h.run(`window.transforms=[];window.clips=0;ctx.transform=(...a)=>transforms.push(a);ctx.clip=()=>clips++;window.sb={index:0,type:0,data:'builtin.rect',layer:1,distorted:true};window.rt={storyboards:[sb],sbValue:(s,k)=>k===TRANSPARENCY?1:SB_DEFAULTS[k]??0};drawStoryboardLayer(rt,1,0,1920,1080);`);
   assert.equal(h.run('clips'),2);assert.equal(h.run('transforms.every(a=>a.every(Number.isFinite))'),true);
-  h.run('clips=0;rt.sbValue=(s,k)=>SB_DISTORT_KEYS.has(k)?0:SB_DEFAULTS[k]??0;drawStoryboardLayer(rt,1,0,1920,1080)');assert.equal(h.run('clips'),0);
+  h.run('clips=0;rt.sbValue=(s,k)=>SB_DISTORT_KEYS.has(k)?0:k===TRANSPARENCY?1:SB_DEFAULTS[k]??0;drawStoryboardLayer(rt,1,0,1920,1080)');assert.equal(h.run('clips'),0);
 });
 test('resize recompiles aspect-dependent JS with a stable seed and preserves judged notes',async()=>{
   const h=setup();h.context.source=`m.withProperty('seed',env('time'));m.timing(0,120);m.line();m.note(0,0,1,1,0,false,false);m.animation(0,0,0,0,Number(env('stage.width')),Number(env('stage.width')),0,0,0,0,false,'');`;

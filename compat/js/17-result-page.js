@@ -21,7 +21,7 @@
   if (song) resultHeader.appendChild(song);
   const profile = document.createElement('div');
   profile.className = 'gameResultProfile';
-  profile.innerHTML = '<div class="gameResultIdentity"><div>user</div><div class="gameResultReality"><span>REALITY</span> 114.514</div></div><img class="gameResultAvatar" src="assets/result-avatar.webp" alt="用户头像">';
+  profile.innerHTML = '<div class="gameResultIdentity"><div>user</div><div class="gameResultReality"><span>REALITY</span> 114.514</div></div><img class="gameResultAvatar" src="assets/result-avatar.png" alt="用户头像">';
   resultHeader.appendChild(profile);
   overlay.appendChild(resultHeader);
   const gradeImage = document.createElement('img');

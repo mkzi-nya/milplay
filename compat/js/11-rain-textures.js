@@ -1,16 +1,16 @@
 const __RAIN_HOLD_SOURCE = {
-  "hold_head": "assets/rain_hold_head.webp",
-  "hold_body": "assets/rain_hold_body.webp",
-  "hold_tail": "assets/rain_hold_tail.webp",
-  "hold_double_head": "assets/rain_hold_double_head.webp",
-  "hold_double_body": "assets/rain_hold_double_body.webp",
-  "hold_double_tail": "assets/rain_hold_double_tail.webp",
-  "exhold_head": "assets/rain_exhold_head.webp",
-  "exhold_body": "assets/rain_exhold_body.webp",
-  "exhold_tail": "assets/rain_exhold_tail.webp",
-  "exhold_double_head": "assets/rain_exhold_double_head.webp",
-  "exhold_double_body": "assets/rain_exhold_double_body.webp",
-  "exhold_double_tail": "assets/rain_exhold_double_tail.webp"
+  "hold_head": "assets/rain_hold_head.png",
+  "hold_body": "assets/rain_hold_body.png",
+  "hold_tail": "assets/rain_hold_tail.png",
+  "hold_double_head": "assets/rain_hold_double_head.png",
+  "hold_double_body": "assets/rain_hold_double_body.png",
+  "hold_double_tail": "assets/rain_hold_double_tail.png",
+  "exhold_head": "assets/rain_exhold_head.png",
+  "exhold_body": "assets/rain_exhold_body.png",
+  "exhold_tail": "assets/rain_exhold_tail.png",
+  "exhold_double_head": "assets/rain_exhold_double_head.png",
+  "exhold_double_body": "assets/rain_exhold_double_body.png",
+  "exhold_double_tail": "assets/rain_exhold_double_tail.png"
 };
 const __rainHoldImgs = new Map();
 function __rainHoldImg(name) {

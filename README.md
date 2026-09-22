@@ -1,6 +1,6 @@
 # Milthm 谱面播放器
 
-纯前端、无构建步骤、无运行时依赖安装的本地 Milthm **可玩播放器**。用静态 HTTP 服务器打开 `index.html`，在同一页面上传区导入谱面 / 图片 / 音频 / 压缩包，用 Canvas 2D 渲染，并提供真正的游玩判定：`Exact / Perfect / Great / Good / Bad / Miss`、连击、分数、打击特效、自动游玩、结算页与视频导出。
+纯前端、无运行时依赖安装的本地 Milthm **可玩播放器**。仓库包含已构建的兼容脚本，用静态 HTTP 服务器打开 `index.html`，在同一页面上传区导入谱面 / 图片 / 音频 / 压缩包，用 Canvas 2D 渲染，并提供游玩判定：`Exact / Perfect / Great / Good / Bad / Miss`、连击、分数、打击特效、自动游玩、结算页与视频导出。
 
 手序（左右手）功能**已彻底移除**：`js/21-no-hand.js` 已删除，其最终的中性贴图覆盖已并入 `js/16-targeted-perf.js`（`noteTextureKey`）。音符只按语义（类型 / AP / 同押）选择中性贴图。手序开关、相关 DOM 与编辑器检查面板均已从界面和代码路径移除（详见“稳健性”）。
 
@@ -13,7 +13,11 @@ python3 -m http.server 8000 --bind 127.0.0.1
 # 打开 http://127.0.0.1:8000/
 ```
 
-保留 `index.html`、`css/`、`js/`、`assets/` 的相对目录关系。
+保留 `index.html`、`css/`、`compat/`、`assets/` 的相对目录关系。修改源码后执行 `npm run build:compat`；首次开发安装依赖可用 `npm install --bin-links=false`（适用于 Android 共享存储不支持符号链接的情况）。
+
+播放/全屏行为以 `cc9170a`（2026-09-20）为基准：不强制横屏或旋转，原生全屏不可用时使用页面内全屏。保留居中声明顺序的修正，避免画布移出左上角。
+
+iOS 12 适配包括 Safari 12 语法转译、触摸输入、Blob 文件读取、离线 ZIP Deflate 解压、旧版 CSS 尺寸回退，以及内置 PNG 贴图。PNG 与 WebP 对应同一素材，兼容构建引用 PNG；ZIP 回退使用随构建附带的 fflate（MIT）。媒体仍由系统解码：iOS 12 不支持 Ogg/Opus，含此类音轨的包需要提供 AAC/M4A 或 MP3 音频；上传的 WebP/AVIF 图片也受系统解码能力限制。未在真实 iOS 12 设备上验证全部流程。
 
 - **必须通过 HTTP**。`file://` 下普通文件导入有时可用，但 Milize JS 依赖的沙箱 `<iframe srcdoc>`、Blob URL、媒体解码、按需 CDN 解压库通常会失败。
 - Milize JS 在 `sandbox="allow-scripts"` 的内联 iframe 中执行（非 Worker），需要浏览器允许 `eval` 与沙箱 iframe。
@@ -79,7 +83,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 | 输入 | 依赖与限制 |
 | --- | --- |
-| ZIP | 内置目录解析；Store 直接读取，Deflate 依赖 `DecompressionStream`；其余压缩方法/加密/分卷条目会被跳过 |
+| ZIP | 内置目录解析；Store 直接读取，Deflate 优先 `DecompressionStream`，不支持时使用随页面附带的 fflate；其余压缩方法/加密/分卷条目会被跳过 |
 | 7z | 按需从 jsDelivr 加载 `libarchive.js@2.1.0` 及 Worker；受网络与 CSP 影响 |
 | milcht zstd | 按需从 jsDelivr 导入 `fzstd@0.1.1`，回退 `zstddec@0.2.0` |
 
@@ -130,6 +134,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 - **上传批次库**：每个用户上传批次独立登记。解析顺序为“从新到旧”，采用**第一个在该批次内唯一命中的**文件；若最新批次对某个键有歧义，会**跳过该键并继续向更早批次回退**，绝不返回任意重复项。批次内先后顺序与包内解析一致：精确路径 → 精确 basename → 大小写不敏感路径 → 折叠名。
 - **对象 URL 生命周期**：资源与故事板 blob URL 都登记在可枚举的表中；加载新谱面/资源时 `__milRevokePackageAssets` 会同时释放这些 URL 并清空故事板缓存，避免跨包泄漏（`js/15-algebra-storyboard.js` 已协调该路径）。
 - **内置图元**：`builtin.rect` / `builtin.round_rect` / `builtin.line` 程序化生成；`builtin.tap` 等复用玩法贴图。内置贴图由 `js/builtin-sources.js` 映射到 `assets/*.webp`，无需上传。
+- **故事板默认透明度为 0**，显式动画决定其显示。`靈.zip` 的第二个 `builtin.line` 没有动画，旧默认值 1 导致中央多出白线；已用本地 MilLune WASM 对照确认其默认 alpha 为 0，并保留第一个对象的动画。原始 ZIP 无需修改。
 
 ## 渲染顺序
 

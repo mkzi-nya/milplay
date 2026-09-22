@@ -3,11 +3,35 @@
 
   if (!global.globalThis) global.globalThis = global;
 
+  if (global.Blob && global.FileReader) {
+    ['text', 'arrayBuffer'].forEach(function (method) {
+      if (Blob.prototype[method]) return;
+      Blob.prototype[method] = function () {
+        var blob = this;
+        return new Promise(function (resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function () { resolve(reader.result); };
+          reader.onerror = function () { reject(reader.error); };
+          reader.onabort = function () { reject(new Error('File read aborted')); };
+          reader[method === 'text' ? 'readAsText' : 'readAsArrayBuffer'](blob);
+        });
+      };
+    });
+  }
+
   if (!Array.prototype.at) {
     Array.prototype.at = function (index) {
       var i = Number(index) || 0;
       if (i < 0) i = this.length + i;
       return i < 0 || i >= this.length ? undefined : this[i];
+    };
+  }
+
+  if (!String.prototype.at) {
+    String.prototype.at = function (index) {
+      var i = Math.trunc(Number(index)) || 0;
+      if (i < 0) i = this.length + i;
+      return i < 0 || i >= this.length ? undefined : this.charAt(i);
     };
   }
 

@@ -91,10 +91,11 @@ const NOTE_DEFAULTS = {
   12: 0,
   22: 0xffffffff
 };
+// Unanimated storyboards start transparent, as in the reference player.
 const SB_DEFAULTS = {
   0: 0,
   1: 0,
-  2: 1,
+  2: 0,
   3: 1,
   4: 0,
   6: 0,
@@ -492,7 +493,7 @@ function parseJsVal(raw) {
 }
 function scanCalls(text, name) {
   const res = [],
-    re = name === 'p' ? /(?<![A-Za-z0-9_$])\.?p\s*\(/g : new RegExp('(?<![A-Za-z0-9_.$])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\(', 'g');
+    re = name === 'p' ? /(?:^|[^A-Za-z0-9_$])\.?p\s*\(/g : new RegExp('(?:^|[^A-Za-z0-9_.$])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\(', 'g');
   let m;
   while (m = re.exec(text)) {
     let i = re.lastIndex,
@@ -1459,13 +1460,16 @@ function decodeZipName(bytes, utf8 = true) {
   }
 }
 async function inflateRaw(data) {
-  if (!('DecompressionStream' in window)) throw new Error('当前浏览器不支持 zip deflate 解压');
-  for (const fmt of ['deflate-raw', 'deflate']) {
+  if ('DecompressionStream' in window && Blob.prototype.stream) {
     try {
-      return await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream(fmt))).arrayBuffer();
+      return await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
     } catch {}
   }
-  throw new Error('zip deflate 解压失败');
+  if (window.fflate) {
+    const out = fflate.inflateSync(new Uint8Array(data));
+    return out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
+  }
+  throw new Error('zip deflate 解压库未加载');
 }
 async function extractZip(file) {
   const buf = await file.arrayBuffer(),
@@ -2556,7 +2560,7 @@ function milizeJsToJson(text, environment = null) {
 function __milScanNamedCalls(text, names) {
   const out = [],
     alt = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
-    re = new RegExp('(?<![A-Za-z0-9_.$])(' + alt + ')\\s*\\(', 'g');
+    re = new RegExp('(?:^|[^A-Za-z0-9_.$])(' + alt + ')\\s*\\(', 'g');
   let m;
   while (m = re.exec(text)) {
     let i = re.lastIndex,
