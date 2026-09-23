@@ -17,7 +17,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 播放/全屏行为以 `cc9170a`（2026-09-20）为基准：不强制横屏或旋转，原生全屏不可用时使用页面内全屏。保留居中声明顺序的修正，避免画布移出左上角。
 
-iOS 12 适配包括 Safari 12 语法转译、触摸输入、Blob 文件读取、离线 ZIP Deflate 解压、旧版 CSS 尺寸回退，以及内置 PNG 贴图。PNG 与 WebP 对应同一素材，兼容构建引用 PNG；ZIP 回退使用随构建附带的 fflate（MIT）。媒体仍由系统解码：iOS 12 不支持 Ogg/Opus，含此类音轨的包需要提供 AAC/M4A 或 MP3 音频；上传的 WebP/AVIF 图片也受系统解码能力限制。未在真实 iOS 12 设备上验证全部流程。
+兼容构建保留 Safari 12 语法转译、触摸输入、Blob 文件读取、离线 ZIP Deflate 解压与旧版 CSS 尺寸回退；ZIP 回退使用随构建附带的 fflate（MIT）。内置图片统一使用 WebP，因此需要支持 WebP 解码的浏览器；Safari 12 无法显示这些内置图片。媒体仍由系统解码，Ogg/Opus 等格式也受浏览器支持限制。
 
 - **必须通过 HTTP**。`file://` 下普通文件导入有时可用，但 Milize JS 依赖的沙箱 `<iframe srcdoc>`、Blob URL、媒体解码、按需 CDN 解压库通常会失败。
 - Milize JS 在 `sandbox="allow-scripts"` 的内联 iframe 中执行（非 Worker），需要浏览器允许 `eval` 与沙箱 iframe。
@@ -38,7 +38,7 @@ iOS 12 适配包括 Safari 12 语法转译、触摸输入、Blob 文件读取、
 | 倍速 | `rate` 范围 `0.05–8`（受浏览器变速能力限制） |
 | 谱面延迟 | 单位秒，`-5–5`；媒体时间 = `max(0, 谱面时间 + 延迟)` |
 | 音量 / 背景亮度 | 滑块 |
-| 全屏 | 原生全屏；不可用时回退为页面内固定全屏，保留实际横屏／竖屏比例 |
+| 全屏 | 原生全屏；不可用时回退为页面内固定全屏。未设置自定义比例时铺满屏幕；设置比例后按该比例居中显示 |
 | `1:1` | 重置暂停缩放 |
 | 自动游玩 | 开启后按谱面时间判定为 Exact，HUD 显示 AUTOPLAY |
 | 音符大小 / 流速 | `noteScale`（0.25–4）、`flowSpeed`（0.1–8） |
@@ -93,8 +93,10 @@ iOS 12 适配包括 Safari 12 语法转译、触摸输入、Blob 文件读取、
 
 - 窗口：Exact <35ms、Perfect <70ms、Great <105ms、Good <140ms、Bad <155ms，否则为 Miss。按偏移绝对值从最小窗口开始判断，正好落在边界会落到更差的一档。
 - `isAlwaysPerfect`（AP）：偏移在 Good 窗口内（`<140ms`）命中即 Exact，否则 Miss。
-- 参与普通判定的只有类型 0（Tap/Hold）与类型 1（Drag）；Hold 头尾各计一次；类型 2（Fracture/Lightning）不计入普通判定与分数。
-- 闪电有独立的通过／触雷统计，结算显示两者数量；Fake 闪电只渲染，自动游玩按时间通过，跳转和重开会重建状态。碰撞盒依据解包的 `Fracture.prefab` 与 `fracture.asset`。原 DLL 判定方法为空桩，当前采用 **±50 ms 的兼容窗口**；原游戏的准确窗口、Lightning Miss 溢出对 ScoreV3 的惩罚，以及完整通过／爆炸特效仍未恢复。键盘无位置输入会作用于窗口内的闪电。不能将该兼容行为视为原版判定完全一致。
+- 参与普通判定的只有类型 0（Tap/Hold）与类型 1（Drag）；Hold 头尾各计一次。类型 2（Fracture/Lightning）单独判定，不增加普通音符数或普通判定次数。
+- 闪电有独立的通过／触雷统计；Fake 闪电只渲染，自动游玩按时间通过，跳转和重开会重建状态。闪电的空间判定框以其中心为准，宽高都是普通音符判定框的一半；触雷才显示 `lightning2.webp` 特效，通过时没有判定特效。原 DLL 判定方法为空桩，当前采用 **±50 ms 的兼容窗口**；键盘无位置输入会作用于窗口内的闪电。不能将该兼容行为视为原版判定完全一致。
+- 普通音符的打击环和粒子固定在命中瞬间判定线上的落点；Hold 的持续粒子随判定线移动。切换画布尺寸后按新尺寸重算落点。密集段使用稳定的粒子抽样以限制每帧绘制量。
+- 游玩时被判定的非 Hold 音符立即从画面消失；Hold 保留到自身结束。未判定的音符和编辑模式仍遵守谱面可见性。
 - 手动输入来自指针（支持多指、`pointerrawupdate`）与 `A`–`Z`/`Space`；自动游玩按时间轴顺序判定为 Exact。
 - 固定步进 120 Hz；前向卡顿时最多执行 12 步，然后单次扫过跳过的区间补判 Miss，避免主线程死循环。
 
@@ -104,10 +106,11 @@ iOS 12 适配包括 Safari 12 语法转译、触摸输入、Blob 文件读取、
 
 - 判定权重 `scoreMap` 为百万整数：`e:1000000, p:990000, g:600000, n:300000, b:150000, m:0`。
 - 连击分档封顶（`js/09-score.js:6-11`）：`bMax`（基础连击上限 `min(192, max(⌊N·12/50⌋,1))`）、`gCap`、`nCap`、`bCap`、`mCap`。Exact 每步 +2、Perfect +1 累加到 `cur`，封顶 `bMax`；Great/Good 把 `cur` 压到对应 cap，Bad/Miss 归零。另有 `prevLoss` 补偿，保证中途断连后的过程分与参考实现逐行一致。
+- 闪电血条初始为 256；每次触雷扣 64，不足部分从热度 `cur` 扣除，最低为 0。Exact 为闪电血条和热度各回 2，Perfect 各回 1，分别封顶 256 和 `bMax`。闪电扣热度会影响后续音符的连击分贡献；两条血条只在内部参与记分，不显示在游玩 HUD 或结算页。
 - **过程分**（`process(st)`）：`⌊acc/N·(0.4+0.6·procCombo/(n·bMax))⌋ + ⌊5000·maxCombo/N⌋ + ⌊(allEP?5000·n/N:0)⌋`。其中 `N` 始终为**整谱判定数**（不是已判定前缀长度），`n` 为已判定数，`procCombo` 为过程连击累计，`allEP` 表示到目前为止只有 Exact/Perfect。HUD 实时显示该过程分。
 - **结算分**（`final(st)`）：`⌊acc/N·(0.4+0.6·finalCombo/(N·bMax))⌋ + ⌊5000·maxCombo/N⌋ + (allEP?5000:0)`。`finalCombo` 在末尾连击未满时按 `calc_final_from_totals` 做尾部修正。
 - HUD 用增量游标（`score.cursor()`）只读取新增判定，空闲帧不重算；结算时对未判定音符补 Miss 的只是副本，不会污染 HUD。
-- 全 Exact 满分 **1,010,000**、全 Perfect 满分 **1,000,000**（由 `tests/score.test.cjs` 对 377 音符序列断言）。
+- 无触雷时，全 Exact 满分 **1,010,000**、全 Perfect 满分 **1,000,000**（由 `tests/score.test.cjs` 对 377 音符序列断言）。
 
 ### HUD 连击文案（`score.label`）
 

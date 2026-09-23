@@ -2,9 +2,8 @@
   'use strict';
 
   /* RainPlayerUnity-compatible ordinary-note gameplay.  MilPlayment.cs in the supplied
-   * project implements Hit/Drag/Hold only; Fracture/Lightning is deliberately kept out
-   * of ordinary judgement/score because the supplied Milthm semantics define it as a
-   * separate judgement sequence and the supplied Unity player has no Fracture playment. */
+   * project implements Hit/Drag/Hold only. Fracture/Lightning uses a separate
+   * collision path and drains the score's lightning reserve on contact. */
   const GP_WINDOWS = {
     Exact: .035,
     Perfect: .070,
@@ -25,6 +24,7 @@
   // Compatibility policy: original DLL contains signatures only, not the temporal
   // predicate. Keep the provisional +/-50 ms lightning window explicit and isolated.
   const GP_LIGHTNING_WINDOW = .05;
+  const GP_LIGHTNING_HIT_RATIO = .5;
   const GP_EL_COLORS = {
     normal: [220, 202, 255],
     good: [122, 233, 197],
@@ -72,6 +72,17 @@
   function gpOrdinary(n) {
     return !!n && !n.isFake && n.type !== NOTE_FRACTURE && (n.type === NOTE_HIT || n.type === NOTE_DRAG);
   }
+  window.__gpNoteShouldHide = function (n, sec) {
+    if (!gpIsPlay() || n.isFake || n.isHold) return false;
+    if (gp.autoplay) return sec >= n.startSec;
+    if (n.type === NOTE_FRACTURE) {
+      var _gp$lightningResults;
+      const result = (_gp$lightningResults = gp.lightningResults) == null ? void 0 : _gp$lightningResults.get(n.key);
+      return !!result && sec >= result.time;
+    }
+    const entry = gp.entries.get(n.key);
+    return !!entry && entry.headJudged && entry.judgeHited && sec >= entry.judgeTime;
+  };
   function gpEntry(n) {
     let e = gp.entries.get(n.key);
     if (!e) {
@@ -116,7 +127,10 @@
       Bad: 'b',
       Miss: 'm'
     }[name];
-    if (code) gp.judgeSequence.push(code);
+    if (code) {
+      gp.judgeSequence.push(code);
+      gp.scoreEvents.push(code);
+    }
   }
   function gpJudgeState(n, offset) {
     /* Reference grader (WASM func 290) uses strict f64.lt at every threshold, so a
@@ -170,9 +184,11 @@
     gp.accSum = 0;
     gp.fullAcc = 0;
     gp.judgeSequence = [];
+    gp.scoreEvents = [];
     gp.lightning = ((rt == null ? void 0 : rt.notes) || []).filter(n => n.type === NOTE_FRACTURE && !n.isFake).sort((a, b) => a.startSec - b.startSec);
     gp.lightningCursor = 0;
     gp.lightningResults = new Map();
+    gp.lightningEffects = [];
     gp.lightningPass = 0;
     gp.lightningMiss = 0;
     gp.comboTimes = gpOrdinaryComboTimes(rt);
@@ -313,9 +329,9 @@
     return gpStageRect;
   }
   function gpCanvasPoint(ev, refresh = false) {
-    var _els$stageWrap, _matchMedia;
+    var _els$stageWrap, _els$stageWrap$classL, _matchMedia;
     const r = refresh || !gpStageRect || performance.now() - gpStageRectStamp > 1000 ? gpRefreshStageRect() : gpStageRect,
-      rotated = ((_els$stageWrap = els.stageWrap) == null || (_els$stageWrap = _els$stageWrap.classList) == null ? void 0 : _els$stageWrap.contains('nativeLandscapeFallback')) && (matchMedia == null || (_matchMedia = matchMedia('(orientation:portrait)')) == null ? void 0 : _matchMedia.matches),
+      rotated = ((_els$stageWrap = els.stageWrap) == null ? void 0 : (_els$stageWrap$classL = _els$stageWrap.classList) == null ? void 0 : _els$stageWrap$classL.contains('nativeLandscapeFallback')) && (matchMedia == null ? void 0 : (_matchMedia = matchMedia('(orientation:portrait)')) == null ? void 0 : _matchMedia.matches),
       sx = clamp((ev.clientX - r.left) / Math.max(1, r.width), 0, 1),
       sy = clamp((ev.clientY - r.top) / Math.max(1, r.height), 0, 1);
     if (rotated) return {
@@ -385,7 +401,7 @@
     /* RainPlayer's desktop/source box remains 486/1920 wide. On coarse/mobile input,
        enforce the requested lane width in SCREEN space: one judgement lane = 1/6
        of the visible gameplay width, independent of line/note scale or rotation. */
-    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia2 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia2.matches),
+    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null ? void 0 : (_matchMedia2 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia2.matches),
       xOk = coarse ? Math.abs(p.x) * (p.__screenXScale || 1) <= w / 12 : -jw / 2 <= p.x && p.x <= jw / 2;
     return xOk && -jh / 2 <= p.y - jdy && p.y - jdy <= jh / 2;
   }
@@ -495,21 +511,25 @@
     gpUpdateAt(t);
   }
   function gpLightningHit(n, t, touch) {
+    var _matchMedia3;
     if (touch.isKey) return true;
     const w = els.stage.width,
       h = els.stage.height,
       st = transformLine(gp.rt, n.lineIdx, t, w, h),
       f = __pluNoteFrame(gp.rt, n, t, st, w, h);
     if (!f) return false;
-    // Fracture.prefab: BoxCollider offset (30,0), size (67.9715,6).
-    // fracture.asset: sprite width 236.84775 pixels, 59.122402 pixels/world unit.
-    const unit = f.visualW / (236.84775 / 59.122402),
-      a = f.rotation * Math.PI / 180;
-    const dx = touch.x - f.center.x,
-      dy = touch.y - f.center.y;
-    const x = (dx * Math.cos(a) + dy * Math.sin(a)) / unit,
-      y = (-dx * Math.sin(a) + dy * Math.cos(a)) / unit;
-    return Math.abs(x - 30) <= 67.9715 / 2 && Math.abs(y) <= 3;
+    const p = gpRelTouchPoint(t, n, touch),
+      center = gpRelTouchPoint(t, n, {
+        x: f.center.x,
+        y: f.center.y
+      });
+    const dx = p.x - center.x,
+      dy = p.y - center.y,
+      jw = 485.99991 / 1920 * w,
+      jh = 2202.27645 / 1080 * h;
+    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null ? void 0 : (_matchMedia3 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia3.matches);
+    const xOk = coarse ? Math.abs(dx) * (p.__screenXScale || 1) <= w / 12 * GP_LIGHTNING_HIT_RATIO : Math.abs(dx) <= jw / 2 * GP_LIGHTNING_HIT_RATIO;
+    return xOk && Math.abs(dy) <= jh / 2 * GP_LIGHTNING_HIT_RATIO;
   }
   function gpLightningUpdate(t) {
     const notes = gp.lightning || [];
@@ -526,8 +546,23 @@
           result: hit ? 'Miss' : 'Pass',
           time: t
         });
+        const at = hit ? t : n.startSec,
+          w = els.stage.width,
+          h = els.stage.height;
+        if (hit && t - at < .45) {
+          const st = transformLine(gp.rt, n.lineIdx, at, w, h),
+            f = __pluNoteFrame(gp.rt, n, at, st, w, h);
+          if (f) gp.lightningEffects.push({
+            at,
+            hit: true,
+            x: f.center.x / w,
+            y: f.center.y / h,
+            size: f.visualW / w
+          });
+        }
         if (hit) {
           gp.lightningMiss++;
+          gp.scoreEvents.push('l');
           gpCallback('Miss', 0, t);
         } else gp.lightningPass++;
       }
@@ -545,6 +580,37 @@
       pending: total - passed - (gp.autoplay ? 0 : gp.lightningMiss)
     };
   };
+  function gpDrawLightningEffects(rt, sec, w, h) {
+    if (!gpIsPlay() || !state.hitEffects) return;
+    const sprite = imgFor('lightning2');
+    function paint(e) {
+      const age = sec - e.at;
+      if (age < 0 || age > .4) return;
+      const fade = (1 - age / .4) ** 2,
+        x = e.x * w,
+        y = e.y * h,
+        r = Math.max(5, e.size * w) * (e.hit ? 1.9 : 1.1);
+      if (__milRectOutsideView(x - r * 2, y - r * 2, x + r * 2, y + r * 2, w, h)) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha *= fade * (e.hit ? .85 : .48);
+      ctx.translate(x, y);
+      if (sprite != null && sprite.naturalWidth) {
+        ctx.rotate(e.hit ? Math.PI / 2 : 0);
+        ctx.drawImage(sprite, -r, -r * .25, r * 2, r * .5);
+      } else {
+        ctx.fillStyle = e.hit ? '#ff94ea' : '#b5dfff';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r, r * .18, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    if (gp.autoplay) return;
+    for (let i = gp.lightningEffects.length - 1; i >= 0; i--) if (sec < gp.lightningEffects[i].at || sec - gp.lightningEffects[i].at > .4) gp.lightningEffects.splice(i, 1);
+    for (const e of gp.lightningEffects) paint(e);
+  }
+  window.__gpDrawLightningEffects = gpDrawLightningEffects;
   window.__gpRebindRuntime = function (rt) {
     const old = gp.rt,
       same = old && old.notes.length === rt.notes.length && old.notes.every((n, i) => {
@@ -560,7 +626,8 @@
         touches: new Map(gp.touches)
       },
       keys = [...gpKeys];
-    for (const key of ['entries', 'combo', 'maxCombo', 'accSum', 'fullAcc', 'judgeSequence', 'cuts', 'lastFixed', 'indicatorBalls', 'effectKeys', 'lightningResults', 'lightningCursor', 'lightningPass', 'lightningMiss', 'touchHoldEnd', 'holdLasts']) saved[key] = gp[key];
+    for (const key of ['entries', 'combo', 'maxCombo', 'accSum', 'fullAcc', 'judgeSequence', 'scoreEvents', 'cuts', 'lastFixed', 'indicatorBalls', 'effectKeys', 'lightningResults', 'lightningEffects', 'lightningCursor', 'lightningPass', 'lightningMiss', 'touchHoldEnd', 'holdLasts']) saved[key] = gp[key];
+    for (const entry of saved.entries.values()) delete entry.fxProxy;
     gpFresh(rt);
     Object.assign(gp, saved);
     for (const key of keys) gpKeys.add(key);
@@ -738,7 +805,7 @@
   window.calculateScore = score.calculate;
   function gpScoreState(sec = state.currentTime || 0) {
     gpEnsure();
-    return scoreCursor(gp.judgeSequence, gp.allCombo, gp.autoplay ? gpOrdinaryComboAt(sec) : gp.judgeSequence.length, gp.autoplay);
+    return scoreCursor(gp.judgeSequence, gp.allCombo, gp.autoplay ? gpOrdinaryComboAt(sec) : gp.judgeSequence.length, gp.autoplay, gp.lightningMiss ? gp.scoreEvents : null);
   }
   function gpScoreBreakdown(forceComplete = false) {
     const st = gpScoreState();
@@ -854,16 +921,18 @@
         gp.effectKeys.delete(key);
         continue;
       }
-      const st = (lineStates == null ? void 0 : lineStates[n.lineIdx]) || transformLine(rt, n.lineIdx, sec, w, h),
-        proxy = {
-          ...n,
-          startSec: e.judgeTime,
-          endSec: n.isHold ? Math.min(n.endSec, e.judgeIsMiss ? e.judgeMissTime : n.endSec) : e.judgeTime
-        };
+      const st = (lineStates == null ? void 0 : lineStates[n.lineIdx]) || transformLine(rt, n.lineIdx, sec, w, h);
+      if (!e.fxProxy || e.fxProxy.startSec !== e.judgeTime) {
+        e.fxProxy = Object.create(n);
+        e.fxProxy.startSec = e.judgeTime;
+        e.fxProxy.__pluEffectSource = n;
+      }
+      const proxy = e.fxProxy;
+      proxy.endSec = n.isHold ? Math.min(n.endSec, e.judgeIsMiss ? e.judgeMissTime : n.endSec) : e.judgeTime;
       const old = gpEffectKind,
         oldRing = gpDrawingRing;
       gpEffectKind = e.judgeIsGood ? 'good' : 'normal';
-      /* 特效固定在判定瞬间的实际落点：记录当帧落点，之后不随 note 逐帧移动。 */
+      /* 命中环固定在判定瞬间的判定线落点；Hold 持续粒子由渲染器跟随判定线。 */
       if (typeof __pluAnchorEffectNote === 'function') __pluAnchorEffectNote(proxy, e.judgeTime);
       try {
         if (gpHitRingRaw && age <= .5) {
@@ -1100,6 +1169,7 @@
     rebuild: gpRebuildExactBefore,
     holdSustained: gpHoldSustained,
     isHit: gpIsHit,
+    isLightningHit: gpLightningHit,
     relPoint: gpRelTouchPoint
   };
   gpFresh(state.runtime);

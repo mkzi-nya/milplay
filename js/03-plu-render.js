@@ -231,6 +231,7 @@ function __pluNoteStaticCull(rt,n,sec,st,w,h){
 const __pluDrawNoteLegacy=drawNote;
 drawNote=function(rt,n,sec,st,w,h){
   if(!state.referenceMode)return __pluDrawNoteLegacy(rt,n,sec,st,w,h);
+  if(state.appMode==='play'&&window.__gpNoteShouldHide?.(n,sec))return;
   if(state.appMode==='play'&&__pluNoteStaticCull(rt,n,sec,st,w,h))return;
   const frame=__pluNoteFrame(rt,n,sec,st,w,h);if(!frame||frame.alpha<=.001)return;/* Preserve requested texture/hand behavior while using reference placement/visibility. */
   /* The reference gate already lives in __pluNoteFrame; the old try/finally only
@@ -258,29 +259,35 @@ let __pluDrawHitRing,__pluDrawOneParticle;
  * continuous trail. */
 function __pluParticleStride(n){return n.__pluParticleStride||1}
 function __pluDrawParticles(rt,n,sec,st,w,h){
-  if(!state.hitEffects||n.isFake)return;
+  if(!state.hitEffects||n.isFake||n.type===NOTE_FRACTURE)return;
   const mobilePlay=state.appMode==='play'&&((navigator.maxTouchPoints||0)>0||matchMedia?.('(pointer:coarse)')?.matches);
   if(!n.isHold){
     if(sec<n.startSec||sec>n.startSec+.5)return;
-    const f=__pluNoteFrame(rt,n,sec,st,w,h);if(!f||f.alpha<=.001)return;
+    const anchor=__pluAnchorEffectNote(n,n.startSec,w,h,rt);if(!anchor||anchor.alpha<=.001)return;
     /* A burst lives inside ~0.35*(w+h)*noteScaling of the note center; if that disc is
      * off-screen no individual particle can be visible. One test replaces up to ten
      * per-particle rect checks at dense-drag densities. */
-    const maxR=(w+h)*.5*f.scale*(state.noteScale||1);
-    if(__milRectOutsideView(f.center.x-maxR,f.center.y-maxR,f.center.x+maxR,f.center.y+maxR,w,h))return;
+    const maxR=(w+h)*.5*anchor.scale*(state.noteScale||1);
+    if(__milRectOutsideView(anchor.x-maxR,anchor.y-maxR,anchor.x+maxR,anchor.y+maxR,w,h))return;
     const count=mobilePlay?8:10,emission=n.startSec,stride=__pluParticleStride(n);
-    if(stride<=1){for(let i=0;i<count;i++)__pluDrawOneParticle(f,n,sec,emission,i,w,h);return}
+    if(stride<=1){for(let i=0;i<count;i++)__pluDrawOneParticle(anchor,n,sec,emission,i,w,h);return}
     /* Offset the kept indices by a stable per-note hash so the retained subset still
      * spans the burst instead of always dropping the same angular slots. */
     const phase=__pluHash32(n.key+'|'+n.globalIdx)%stride;
-    for(let i=phase;i<count;i+=stride)__pluDrawOneParticle(f,n,sec,emission,i,w,h);
+    for(let i=phase;i<count;i+=stride)__pluDrawOneParticle(anchor,n,sec,emission,i,w,h);
     return;
   }
   if(sec<n.startSec-.5)return;
-  const f=__pluNoteFrame(rt,n,sec,st,w,h);if(!f||f.alpha<=.001)return;
-  const maxR=(w+h)*.5*f.scale*(state.noteScale||1);
-  if(__milRectOutsideView(f.center.x-maxR,f.center.y-maxR,f.center.x+maxR,f.center.y+maxR,w,h))return;
-  const step=mobilePlay ? .02 : .01,from=Math.max(n.startSec,sec-.5),to=Math.min(sec,n.endSec);if(to<from)return;let first=Math.max(0,Math.ceil((from-n.startSec)/step-1e-9)),last=Math.floor((to-n.startSec)/step+1e-9);for(let i=first;i<=last;i++)__pluDrawOneParticle(f,n,sec,n.startSec+i*step,i,w,h)
+  const step=mobilePlay ? .02 : .01,from=Math.max(n.startSec,sec-.5),to=Math.min(sec,n.endSec);if(to<from)return;
+  /* The Hold emitter follows the judgement line on every frame. Its initial
+   * hit ring still uses the cached impact position. */
+  const anchor=__pluEffectLinePoint(n,Math.min(sec,n.endSec),w,h,rt);if(!anchor||anchor.alpha<=.001)return;
+  const maxR=(w+h)*.5*anchor.scale*(state.noteScale||1);
+  if(__milRectOutsideView(anchor.x-maxR,anchor.y-maxR,anchor.x+maxR,anchor.y+maxR,w,h))return;
+  const first=Math.max(0,Math.ceil((from-n.startSec)/step-1e-9)),last=Math.floor((to-n.startSec)/step+1e-9);
+  for(let i=first;i<=last;i++){
+    __pluDrawOneParticle(anchor,n,sec,n.startSec+i*step,i,w,h);
+  }
 }
 
 const __pluTransformLineReference=transformLine;

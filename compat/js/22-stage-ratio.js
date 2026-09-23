@@ -23,6 +23,7 @@
     inner == null || (_inner$style = inner.style) == null || _inner$style.setProperty == null || _inner$style.setProperty('--mil-stage-ratio', String(state.stageRatio));
     wrap == null || (_wrap$classList = wrap.classList) == null || _wrap$classList.toggle == null || _wrap$classList.toggle('customStageRatio', custom);
     wrap == null || (_wrap$classList2 = wrap.classList) == null || _wrap$classList2.toggle == null || _wrap$classList2.toggle('portraitStageRatio', custom && state.stageRatio < 1);
+    window.__milSyncLegacyFullscreenSize == null || window.__milSyncLegacyFullscreenSize();
     a == null || a.setCustomValidity == null || a.setCustomValidity(!custom && (a.value || b != null && b.value) ? '请输入有效的长和宽' : '');
     markStageResize();
     (window.requestAnimationFrame || setTimeout)(() => {

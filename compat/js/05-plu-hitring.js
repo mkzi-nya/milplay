@@ -158,68 +158,52 @@ function __plu100DrawRingMask(cx, cy, size, rotationDeg, color, textureIndex) {
   ctx.restore();
 }
 
-/* 判定特效的位置是判定瞬间 note 的实际落点，不随 note 移动。
-   __pluNoteFrame 会逐帧重算中心，因此这里在判定时刻锁定落点并吸附到线头。 */
-function __pluAnchorEffectNote(n, sec) {
-  if (!n || n.z_hitTime > 0) return n;
-  const rt = state.runtime,
-    w = els.stage.width,
-    h = els.stage.height,
-    st = typeof transformLine === 'function' ? transformLine(rt, n.lineIdx, sec, w, h) : null,
-    f = st ? __pluNoteFrame(rt, n, sec, st, w, h) : null;
-  const center = st && f ? gpEffectAnchor(f.center.x, st.center.x, f.center.y, st.center.y, st.scale) : null;
-  Object.defineProperties(n, {
-    z_hitTime: {
-      configurable: true,
-      value: sec
-    },
-    z_hitX: {
-      configurable: true,
-      value: center ? center.x : null
-    },
-    z_hitY: {
-      configurable: true,
-      value: center ? center.y : null
-    },
-    z_hitTransform: {
-      configurable: true,
-      value: st
-    }
-  });
-  return n;
-}
-/* 把落点吸附到判定线头部：线头沿线的局部 +x 方向越过中心。 */
-function gpEffectAnchor(x, ox, y, oy, scale) {
-  const dx = x - ox,
-    dy = y - oy,
-    len = Math.hypot(dx, dy);
-  if (!(len > 1e-9)) return {
-    x,
-    y
-  };
-  const ux = dx / len,
-    uy = dy / len,
-    d = LINE_HEAD_CONNECT_POINT * Math.abs(scale || 1);
+/* Project the note's horizontal landing position onto the actual judgement line.
+ * POS_Y/REL_Y and a judgement made early can leave the visible note above it. */
+function __pluEffectLinePoint(n, sec, w, h, rt) {
+  if (!n || !rt) return null;
+  const source = n.__pluEffectSource || n,
+    st = transformLine(rt, source.lineIdx, sec, w, h),
+    f = __pluNoteFrame(rt, source, sec, st, w, h);
+  if (!f) return null;
+  const point = applyLineWorld(st, w, h, f.baseX, 0);
   return {
-    x: ox + ux * d,
-    y: oy + uy * d
+    x: point.x,
+    y: point.y,
+    scale: f.scale,
+    alpha: f.alpha
   };
+}
+/* Burst origin is frozen at the judgement instant. Resize and chart changes
+ * invalidate backing-store coordinates; Hold's moving emitter bypasses this cache. */
+function __pluAnchorEffectNote(n, sec, w = els.stage.width, h = els.stage.height, rt = state.runtime) {
+  if (!n || !rt) return null;
+  const cached = n.__pluEffectAnchor;
+  if (cached && cached.rt === rt && cached.time === sec && cached.w === w && cached.h === h) return cached;
+  const point = __pluEffectLinePoint(n, sec, w, h, rt);
+  if (!point) return null;
+  const anchor = {
+    rt,
+    time: sec,
+    w,
+    h,
+    ...point
+  };
+  n.__pluEffectAnchor = anchor;
+  return anchor;
 }
 window.__pluAnchorEffectNote = __pluAnchorEffectNote;
 __pluDrawHitRing = function (rt, n, sec, st, w, h) {
-  if (!state.hitEffects || n.isFake || sec < n.startSec || sec > n.startSec + .5) return;
-  __pluAnchorEffectNote(n, clamp(sec, n.startSec, n.startSec + .5));
-  const f = __pluNoteFrame(rt, n, sec, st, w, h);
-  if (!f) return;
+  if (!state.hitEffects || n.isFake || n.type === NOTE_FRACTURE || sec < n.startSec || sec > n.startSec + .5) return;
+  const anchor = __pluAnchorEffectNote(n, n.startSec, w, h, rt);
+  if (!anchor) return;
   const p = (sec - n.startSec) / .5,
     lineHeadBase = (w + h) * .0223 * (state.noteScale || 1),
-    size = lineHeadBase * 4.632 * (1 - (1 - p) ** 3) * f.scale;
+    size = lineHeadBase * 4.632 * (1 - (1 - p) ** 3) * anchor.scale;
   if (!(size > 0)) return;
   const color = __pluParticleColor(.065 + p * .4),
-    textureIndex = clamp(Math.floor(p * 60), 0, 59),
-    px = n.z_hitX == null ? f.center.x : n.z_hitX,
-    py = n.z_hitY == null ? f.center.y : n.z_hitY;
-  __plu100DrawRingMask(px, py, size, __plu100EffectRotation(n), color, textureIndex);
+    textureIndex = clamp(Math.floor(p * 60), 0, 59);
+  __plu100DrawRingMask(anchor.x, anchor.y, size, __plu100EffectRotation(n), color, textureIndex);
 };
 
 /* Keep source particle math, but use the corrected source-order random parameters. */
@@ -228,12 +212,13 @@ __pluDrawOneParticle = function (f, n, sec, emission, index, w, h) {
     a = __pluParticleAlpha(p);
   if (a <= 0) return;
   const q = __pluParticleParams(n, index),
-    noteScaling = f.scale * (state.noteScale || 1),
+    anchor = f;
+  const noteScaling = anchor.scale * (state.noteScale || 1),
     baseSize = q.size * (w + h),
     radius = p * q.speed * q.speed * (p * p / 3 - p + 1) * (w + h),
     theta = q.rotation * Math.PI / 180,
-    ox = n.z_hitX == null ? f.center.x : n.z_hitX,
-    oy = n.z_hitY == null ? f.center.y : n.z_hitY,
+    ox = anchor.x,
+    oy = anchor.y,
     x = ox + Math.cos(theta) * radius * noteScaling,
     y = oy + Math.sin(theta) * radius * noteScaling + p * p * q.gravity * .025 * (w + h) * noteScaling,
     rx = (p + 1) ** -q.sx * 1.34 / (p + 1) * baseSize * noteScaling,

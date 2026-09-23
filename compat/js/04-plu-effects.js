@@ -173,7 +173,7 @@ render = function () {
     for (let i = hRingStart; i < holds.length && holds[i].startSec <= sec; i++) __pluDrawHitRing(rt, holds[i], sec, lineStates[holds[i].lineIdx], w, h);
     /* Manual judgement effects are incremental active entries, analogous to RainPlayer's
        pooled active particle objects; autoplay continues to use scheduled effects. */
-    window.__gpDrawManualEffects == null || window.__gpDrawManualEffects(rt, sec, w, h, lineStates);
+    window.__gpDrawManualEffects == null ? void 0 : window.__gpDrawManualEffects(rt, sec, w, h, lineStates);
     for (let i = nhStart; i < nonholds.length && nonholds[i].startSec <= sec; i++) __pluDrawParticles(rt, nonholds[i], sec, lineStates[nonholds[i].lineIdx], w, h);
     const fxHolds = ((_rt$__pluHoldFxBucket = rt.__pluHoldFxBuckets) == null ? void 0 : _rt$__pluHoldFxBucket.get(Math.floor(Math.max(0, sec)))) || [];
     for (const n of fxHolds) if (n.startSec <= sec && n.endSec + .5 >= sec) __pluDrawParticles(rt, n, sec, lineStates[n.lineIdx], w, h);
@@ -187,6 +187,7 @@ render = function () {
        are intentionally emitted before this pass as well: the thin line remains
        readable at the exact contact frame, matching the reference capture. */
     for (const st of lineStates) drawLineState(st, w, h);
+    window.__gpDrawLightningEffects == null ? void 0 : window.__gpDrawLightningEffects(rt, sec, w, h);
     drawStoryboardLayer(rt, 2, sec, w, h);
     ctx.restore();
     drawCombo(rt, sec, w, h);

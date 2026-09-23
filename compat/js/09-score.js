@@ -21,6 +21,7 @@
       allEP: true,
       cur: bMax,
       bMax,
+      lightningHealth: 256,
       gCap: Math.min(128, Math.max(noteAmount * 8 / 50 | 0, 1)),
       nCap: Math.min(96, Math.max(noteAmount * 6 / 50 | 0, 1)),
       bCap: Math.min(64, Math.max(noteAmount * 5 / 50 | 0, 1)),
@@ -46,6 +47,7 @@
     st.counts[judge]++;
     st.acc += map[judge];
     if (judge === 'e' || judge === 'p') {
+      st.lightningHealth = Math.min(256, st.lightningHealth + (judge === 'e' ? 2 : 1));
       st.combo++;
       st.cur = Math.min(st.cur + (judge === 'e' ? 2 : 1), bMax);
     } else {
@@ -64,6 +66,12 @@
       st.procCombo -= st.prevLoss;
       if (st.procCombo < 0) st.procCombo = 0;
     }
+    return st;
+  }
+  function lightningHit(st) {
+    const overflow = Math.max(0, 64 - st.lightningHealth);
+    st.lightningHealth = Math.max(0, st.lightningHealth - 64);
+    st.cur = Math.max(0, st.cur - overflow);
     return st;
   }
   function process(st) {
@@ -97,6 +105,7 @@
       bMax: st.bMax,
       currentCombo: st.combo,
       currentComboScore: st.cur,
+      lightningHealth: st.lightningHealth,
       processScore: process(st),
       finalScore: final(st),
       accuracy: st.len ? st.acc / (st.len * 1000000) : 0
@@ -113,13 +122,32 @@
   function cursor() {
     let st = null,
       source = null,
-      auto = false;
-    return function (seq, total, judged = seq.length, autoplay = false) {
+      auto = false,
+      eventSource = null,
+      eventIndex = 0;
+    return function (seq, total, judged = seq.length, autoplay = false, events = null) {
       const limit = Math.max(0, Math.min(total, judged));
-      if (!st || source !== seq || auto !== autoplay || st.noteAmount !== total || st.len > limit) {
+      const timeline = events && !autoplay ? events : null;
+      if (!st || source !== seq || auto !== autoplay || st.noteAmount !== total || st.len > limit || eventSource !== timeline || timeline && eventIndex > timeline.length) {
         st = create(total);
         source = seq;
         auto = autoplay;
+        eventSource = timeline;
+        eventIndex = 0;
+      }
+      if (timeline) {
+        while (eventIndex < timeline.length) {
+          const event = timeline[eventIndex];
+          if (event === 'l') {
+            lightningHit(st);
+            eventIndex++;
+            continue;
+          }
+          if (st.len >= limit) break;
+          extend(st, event);
+          eventIndex++;
+        }
+        return st;
       }
       while (st.len < limit) extend(st, autoplay ? 'e' : seq[st.len]);
       return st;
@@ -133,6 +161,7 @@
   const api = Object.freeze({
     create,
     extend,
+    lightningHit,
     process,
     final,
     snapshot,

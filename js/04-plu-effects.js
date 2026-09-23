@@ -70,6 +70,7 @@ render=function(){
        are intentionally emitted before this pass as well: the thin line remains
        readable at the exact contact frame, matching the reference capture. */
     for(const st of lineStates)drawLineState(st,w,h);
+    window.__gpDrawLightningEffects?.(rt,sec,w,h);
     drawStoryboardLayer(rt,2,sec,w,h);
     ctx.restore();drawCombo(rt,sec,w,h);if(!play){state.visibleHit=state.visibleHit.map(v=>({...v,...chartToScreen(v.x,v.y),cx:v.x,cy:v.y,r:v.r*state.viewScale}));state.inspectHit=state.inspectHit.map(screenMapHit)}else{state.visibleHit.length=0;state.inspectHit.length=0}}
   drawOverlay(w,h);

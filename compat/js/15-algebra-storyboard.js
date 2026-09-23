@@ -26,8 +26,8 @@
    * reached.  The old storyboard evaluator delayed that transition until the previous
    * event ended, which is wrong for the authored overlapping/touching sequences. */
   function __algStoryboardValue(rt, sb, key, sec) {
-    var _rt$events, _SB_DEFAULTS$key, _tr$events;
-    const tr = rt == null || (_rt$events = rt.events) == null || (_rt$events = _rt$events.get(BEARER_SB)) == null || (_rt$events = _rt$events.get(sb.index)) == null ? void 0 : _rt$events.get(key),
+    var _rt$events, _rt$events$get, _rt$events$get$get, _SB_DEFAULTS$key, _tr$events;
+    const tr = rt == null ? void 0 : (_rt$events = rt.events) == null ? void 0 : (_rt$events$get = _rt$events.get(BEARER_SB)) == null ? void 0 : (_rt$events$get$get = _rt$events$get.get(sb.index)) == null ? void 0 : _rt$events$get$get.get(key),
       def = (_SB_DEFAULTS$key = SB_DEFAULTS[key]) != null ? _SB_DEFAULTS$key : 0;
     if (!tr || !((_tr$events = tr.events) != null && _tr$events.length)) return def;
     const i = Math.max(0, Math.min(tr.events.length - 1, upperBound(tr.starts, sec) - 1));
@@ -53,10 +53,10 @@
   const __algStoryImageBefore = storyImage;
   const __algBuiltinCanvases = new Map();
   const __ALG_SB_BUILTIN_NOTE_SRC = {
-    "tap": "assets/alg_tap.png",
-    "tap_double": "assets/alg_tap_double.png",
-    "extap": "assets/alg_extap.png",
-    "extap_double": "assets/alg_extap_double.png"
+    "tap": "assets/alg_tap.webp",
+    "tap_double": "assets/alg_tap_double.webp",
+    "extap": "assets/alg_extap.webp",
+    "extap_double": "assets/alg_extap_double.webp"
   };
   const __algSbBuiltinImgs = new Map();
   let __algStoryboardRenderQueued = false;

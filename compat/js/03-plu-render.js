@@ -325,7 +325,7 @@ const __pluFindChartLegacy = __milFindParseableChart;
 __milFindParseableChart = async function (files) {
   var _result$parsed;
   const result = await __pluFindChartLegacy(files);
-  const chart = result == null || (_result$parsed = result.parsed) == null ? void 0 : _result$parsed.chart,
+  const chart = result == null ? void 0 : (_result$parsed = result.parsed) == null ? void 0 : _result$parsed.chart,
     chartFile = result == null ? void 0 : result.file;
   if (chart && chartFile && !/\.(?:js|mjs|cjs)$/i.test(chartFile.name)) {
     const base = __milBasename(chartFile.name).replace(/\.[^.]+$/, '').toLowerCase(),
@@ -358,7 +358,7 @@ compileEvents = function (chart, timeline) {
     return null;
   };
   function addRaw(raw, fallbackI1 = null) {
-    var _raw$ease, _ref, _raw$data, _ref2, _raw$key, _ref3, _ref4, _raw$i, _MIL_VALID_ANIMATION, _ref5, _ref6, _raw$bpmId, _ref7, _ref8, _ref9, _raw$fromBeat, _ref0, _ref1, _ref10, _raw$toBeat, _ref11, _ref12, _raw$customEaseArr, _raw$_source, _raw$_source2, _ref13, _ref14, _raw$isCustomEase, _raw$_source3, _raw$_source4, _ref15, _raw$fv, _ref16, _ref17, _ref18, _ref19, _raw$tv, _ref20, _raw$press, _ref21, _raw$valueExpression, _ref22, _raw$customEaseExpres;
+    var _raw$ease, _ref, _raw$data, _ref2, _raw$key, _ref3, _ref4, _raw$i, _MIL_VALID_ANIMATION, _ref5, _ref6, _raw$bpmId, _ref7, _ref8, _ref9, _raw$fromBeat, _ref10, _ref11, _ref12, _raw$toBeat, _ref13, _ref14, _raw$customEaseArr, _raw$_source, _raw$_source2, _ref15, _ref16, _raw$isCustomEase, _raw$_source3, _raw$_source4, _ref17, _raw$fv, _ref18, _ref19, _ref20, _ref21, _raw$tv, _ref22, _raw$press, _ref23, _raw$valueExpression, _ref24, _raw$customEaseExpres;
     raw = raw || {};
     const eraw = (_raw$ease = raw.ease) != null ? _raw$ease : raw.Ease,
       eobj = eraw && typeof eraw === 'object' ? eraw : {},
@@ -374,11 +374,11 @@ compileEvents = function (chart, timeline) {
     const scope = (_ref5 = (_ref6 = (_raw$bpmId = raw.bpmId) != null ? _raw$bpmId : raw.bpm) != null ? _ref6 : raw.BPM) != null ? _ref5 : 0,
       scoped = raw.bpmId != null || raw.bpm != null || raw.BPM != null,
       from = (_ref7 = (_ref8 = (_ref9 = (_raw$fromBeat = raw.fromBeat) != null ? _raw$fromBeat : raw.FromBeat) != null ? _ref9 : raw.startTime) != null ? _ref8 : raw.FromTime) != null ? _ref7 : 0,
-      to = (_ref0 = (_ref1 = (_ref10 = (_raw$toBeat = raw.toBeat) != null ? _raw$toBeat : raw.ToBeat) != null ? _ref10 : raw.endTime) != null ? _ref1 : raw.ToTime) != null ? _ref0 : from;
+      to = (_ref10 = (_ref11 = (_ref12 = (_raw$toBeat = raw.toBeat) != null ? _raw$toBeat : raw.ToBeat) != null ? _ref12 : raw.endTime) != null ? _ref11 : raw.ToTime) != null ? _ref10 : from;
     let ss = __milScopedTimeToSeconds(from, timeline, chart.bpms, scope, scoped && !chart._rwc),
       es = __milScopedTimeToSeconds(to, timeline, chart.bpms, scope, scoped && !chart._rwc);
-    const samplesRaw = (_ref11 = (_ref12 = (_raw$customEaseArr = raw.customEaseArr) != null ? _raw$customEaseArr : raw.CustomEaseArr) != null ? _ref12 : (_raw$_source = raw._source) == null ? void 0 : _raw$_source.customEaseArr) != null ? _ref11 : (_raw$_source2 = raw._source) == null ? void 0 : _raw$_source2.CustomEaseArr,
-      customEnabled = !!((_ref13 = (_ref14 = (_raw$isCustomEase = raw.isCustomEase) != null ? _raw$isCustomEase : raw.IsCustomEase) != null ? _ref14 : (_raw$_source3 = raw._source) == null ? void 0 : _raw$_source3.isCustomEase) != null ? _ref13 : (_raw$_source4 = raw._source) == null ? void 0 : _raw$_source4.IsCustomEase),
+    const samplesRaw = (_ref13 = (_ref14 = (_raw$customEaseArr = raw.customEaseArr) != null ? _raw$customEaseArr : raw.CustomEaseArr) != null ? _ref14 : (_raw$_source = raw._source) == null ? void 0 : _raw$_source.customEaseArr) != null ? _ref13 : (_raw$_source2 = raw._source) == null ? void 0 : _raw$_source2.CustomEaseArr,
+      customEnabled = !!((_ref15 = (_ref16 = (_raw$isCustomEase = raw.isCustomEase) != null ? _raw$isCustomEase : raw.IsCustomEase) != null ? _ref16 : (_raw$_source3 = raw._source) == null ? void 0 : _raw$_source3.isCustomEase) != null ? _ref15 : (_raw$_source4 = raw._source) == null ? void 0 : _raw$_source4.IsCustomEase),
       samples = customEnabled && Array.isArray(samplesRaw) ? samplesRaw.map(Number).filter(Number.isFinite) : [];
     const ev = {
       startBeat: timeline.beatAt(ss),
@@ -386,14 +386,14 @@ compileEvents = function (chart, timeline) {
       startSec: ss,
       endSec: es,
       key,
-      fv: numOrNull((_ref15 = (_raw$fv = raw.fv) != null ? _raw$fv : raw.FV) != null ? _ref15 : raw.start),
-      tv: numOrNull((_ref16 = (_ref17 = (_ref18 = (_ref19 = (_raw$tv = raw.tv) != null ? _raw$tv : raw.TV) != null ? _ref19 : raw.end) != null ? _ref18 : raw.fv) != null ? _ref17 : raw.FV) != null ? _ref16 : raw.start),
+      fv: numOrNull((_ref17 = (_raw$fv = raw.fv) != null ? _raw$fv : raw.FV) != null ? _ref17 : raw.start),
+      tv: numOrNull((_ref18 = (_ref19 = (_ref20 = (_ref21 = (_raw$tv = raw.tv) != null ? _raw$tv : raw.TV) != null ? _ref21 : raw.end) != null ? _ref20 : raw.fv) != null ? _ref19 : raw.FV) != null ? _ref18 : raw.start),
       data,
       i1,
-      press: int((_ref20 = (_raw$press = raw.press) != null ? _raw$press : raw.Press) != null ? _ref20 : eobj.press, 0),
-      ease: int((_ref21 = typeof eraw === 'object' ? eobj.type : eraw) != null ? _ref21 : 0, 0),
+      press: int((_ref22 = (_raw$press = raw.press) != null ? _raw$press : raw.Press) != null ? _ref22 : eobj.press, 0),
+      ease: int((_ref23 = typeof eraw === 'object' ? eobj.type : eraw) != null ? _ref23 : 0, 0),
       valueExpression: !!((_raw$valueExpression = raw.valueExpression) != null ? _raw$valueExpression : raw.ValueExpression),
-      custom: String((_ref22 = (_raw$customEaseExpres = raw.customEaseExpression) != null ? _raw$customEaseExpres : raw.CustomEaseExpression) != null ? _ref22 : ''),
+      custom: String((_ref24 = (_raw$customEaseExpres = raw.customEaseExpression) != null ? _raw$customEaseExpres : raw.CustomEaseExpression) != null ? _ref24 : ''),
       samples,
       order: sourceOrder++
     };
@@ -593,6 +593,7 @@ function __pluNoteStaticCull(rt, n, sec, st, w, h) {
 const __pluDrawNoteLegacy = drawNote;
 drawNote = function (rt, n, sec, st, w, h) {
   if (!state.referenceMode) return __pluDrawNoteLegacy(rt, n, sec, st, w, h);
+  if (state.appMode === 'play' && window.__gpNoteShouldHide != null && window.__gpNoteShouldHide(n, sec)) return;
   if (state.appMode === 'play' && __pluNoteStaticCull(rt, n, sec, st, w, h)) return;
   const frame = __pluNoteFrame(rt, n, sec, st, w, h);
   if (!frame || frame.alpha <= .001) return; /* Preserve requested texture/hand behavior while using reference placement/visibility. */
@@ -774,42 +775,46 @@ function __pluParticleStride(n) {
 }
 function __pluDrawParticles(rt, n, sec, st, w, h) {
   var _matchMedia;
-  if (!state.hitEffects || n.isFake) return;
-  const mobilePlay = state.appMode === 'play' && ((navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia.matches));
+  if (!state.hitEffects || n.isFake || n.type === NOTE_FRACTURE) return;
+  const mobilePlay = state.appMode === 'play' && ((navigator.maxTouchPoints || 0) > 0 || (matchMedia == null ? void 0 : (_matchMedia = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia.matches));
   if (!n.isHold) {
     if (sec < n.startSec || sec > n.startSec + .5) return;
-    const f = __pluNoteFrame(rt, n, sec, st, w, h);
-    if (!f || f.alpha <= .001) return;
+    const anchor = __pluAnchorEffectNote(n, n.startSec, w, h, rt);
+    if (!anchor || anchor.alpha <= .001) return;
     /* A burst lives inside ~0.35*(w+h)*noteScaling of the note center; if that disc is
      * off-screen no individual particle can be visible. One test replaces up to ten
      * per-particle rect checks at dense-drag densities. */
-    const maxR = (w + h) * .5 * f.scale * (state.noteScale || 1);
-    if (__milRectOutsideView(f.center.x - maxR, f.center.y - maxR, f.center.x + maxR, f.center.y + maxR, w, h)) return;
+    const maxR = (w + h) * .5 * anchor.scale * (state.noteScale || 1);
+    if (__milRectOutsideView(anchor.x - maxR, anchor.y - maxR, anchor.x + maxR, anchor.y + maxR, w, h)) return;
     const count = mobilePlay ? 8 : 10,
       emission = n.startSec,
       stride = __pluParticleStride(n);
     if (stride <= 1) {
-      for (let i = 0; i < count; i++) __pluDrawOneParticle(f, n, sec, emission, i, w, h);
+      for (let i = 0; i < count; i++) __pluDrawOneParticle(anchor, n, sec, emission, i, w, h);
       return;
     }
     /* Offset the kept indices by a stable per-note hash so the retained subset still
      * spans the burst instead of always dropping the same angular slots. */
     const phase = __pluHash32(n.key + '|' + n.globalIdx) % stride;
-    for (let i = phase; i < count; i += stride) __pluDrawOneParticle(f, n, sec, emission, i, w, h);
+    for (let i = phase; i < count; i += stride) __pluDrawOneParticle(anchor, n, sec, emission, i, w, h);
     return;
   }
   if (sec < n.startSec - .5) return;
-  const f = __pluNoteFrame(rt, n, sec, st, w, h);
-  if (!f || f.alpha <= .001) return;
-  const maxR = (w + h) * .5 * f.scale * (state.noteScale || 1);
-  if (__milRectOutsideView(f.center.x - maxR, f.center.y - maxR, f.center.x + maxR, f.center.y + maxR, w, h)) return;
   const step = mobilePlay ? .02 : .01,
     from = Math.max(n.startSec, sec - .5),
     to = Math.min(sec, n.endSec);
   if (to < from) return;
-  let first = Math.max(0, Math.ceil((from - n.startSec) / step - 1e-9)),
+  /* The Hold emitter follows the judgement line on every frame. Its initial
+   * hit ring still uses the cached impact position. */
+  const anchor = __pluEffectLinePoint(n, Math.min(sec, n.endSec), w, h, rt);
+  if (!anchor || anchor.alpha <= .001) return;
+  const maxR = (w + h) * .5 * anchor.scale * (state.noteScale || 1);
+  if (__milRectOutsideView(anchor.x - maxR, anchor.y - maxR, anchor.x + maxR, anchor.y + maxR, w, h)) return;
+  const first = Math.max(0, Math.ceil((from - n.startSec) / step - 1e-9)),
     last = Math.floor((to - n.startSec) / step + 1e-9);
-  for (let i = first; i <= last; i++) __pluDrawOneParticle(f, n, sec, n.startSec + i * step, i, w, h);
+  for (let i = first; i <= last; i++) {
+    __pluDrawOneParticle(anchor, n, sec, n.startSec + i * step, i, w, h);
+  }
 }
 const __pluTransformLineReference = transformLine;
 transformLine = function (rt, li, sec, w, h) {

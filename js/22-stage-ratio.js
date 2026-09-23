@@ -9,6 +9,7 @@ function apply(){
   inner?.style?.setProperty?.('--mil-stage-ratio',String(state.stageRatio));
   wrap?.classList?.toggle?.('customStageRatio',custom);
   wrap?.classList?.toggle?.('portraitStageRatio',custom&&state.stageRatio<1);
+  window.__milSyncLegacyFullscreenSize?.();
   a?.setCustomValidity?.(!custom&&(a.value||b?.value)?'请输入有效的长和宽':'');
   markStageResize();(window.requestAnimationFrame||setTimeout)(()=>{resizeCanvas();render();window.__milRefreshStageEnvironment?.()});
 }

@@ -8,12 +8,30 @@ function lightning(){
 test('lightning avoids, triggers once, excludes fake and ordinary score; rewind resets',()=>{
   const h=lightning();h.run('__gpTest.updateAt(1.2)');
   assert.deepEqual({...h.run('__gpLightningStats()')},{total:2,passed:1,missed:0,pending:1});
+  assert.equal(h.run('__gpTest.gp.lightningEffects.length'),0);
   h.run('__gpTest.touchStart("key",{x:0,y:0},true,3);__gpTest.updateAt(3.01);__gpTest.updateAt(3.2)');
   assert.equal(h.run('__gpLightningStats().missed'),1);
+  assert.equal(h.run('__gpScoreBreakdown().lightningHealth'),192);
   assert.equal(h.run('__gpTest.gp.judgeSequence.length'),0);
   assert.equal(h.run('__gpScoreBreakdown().noteAmount'),0);
   h.run('__gpTest.rebuild(0)');assert.equal(h.run('__gpLightningStats().pending'),2);
   h.run('__gpTest.gp.autoplay=true');assert.equal(h.run('__gpLightningStats(4).passed'),2);
+});
+test('lightning collision is half the ordinary note box and only hits emit effects',()=>{
+  const h=setup();
+  h.run(`state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{startTime:1,endTime:1,type:0},{startTime:1,endTime:1,type:2}]}],animations:[]});state.playing=true;__gpTest.fresh();window.tap=state.runtime.notes[0];window.bolt=state.runtime.notes[1];window.st=transformLine(state.runtime,0,1,1280,720);window.center=__pluNoteFrame(state.runtime,bolt,1,st,1280,720).center;window.offset=applyLineWorld(st,1280,720,100,0);`);
+  assert.equal(h.run('__gpTest.isLightningHit(bolt,1,{x:center.x,y:center.y})'),true);
+  assert.equal(h.run('__gpTest.isHit(1,tap,{x:offset.x,y:offset.y})'),true);
+  assert.equal(h.run('__gpTest.isLightningHit(bolt,1,{x:offset.x,y:offset.y})'),false);
+  h.run('window.rings=[];__plu100DrawRingMask=(...a)=>rings.push(a);window.particles=[];__pluDrawOneParticle=(...a)=>particles.push(a);__pluDrawHitRing(state.runtime,bolt,1.1,st,1280,720);__pluDrawParticles(state.runtime,bolt,1.1,st,1280,720);');
+  assert.equal(h.run('rings.length+particles.length'),0);
+});
+test('lightning gauges stay hidden and gameplay score keeps its original white',()=>{
+  const h=lightning();
+  h.run(`state.appMode='play';window.hudWords=[];window.hudRects=0;ctx.fillText=s=>hudWords.push({text:String(s),color:ctx.fillStyle});ctx.fillRect=()=>hudRects++;drawCombo(state.runtime,0,1280,720);`);
+  assert.equal(h.run("hudWords.find(x=>x.text==='0000000').color"),'rgba(255,255,255,.98)');
+  assert.equal(h.run("hudWords.some(x=>x.text==='闪电'||x.text==='热度')"),false);
+  assert.equal(h.run('hudRects'),1);
 });
 test('long stalls resolve lightning and do not repeat results',()=>{
   const h=lightning();h.run('__gpTest.sweep(0,100);__gpTest.sweep(0,100)');

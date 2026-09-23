@@ -21,14 +21,14 @@
   if (song) resultHeader.appendChild(song);
   const profile = document.createElement('div');
   profile.className = 'gameResultProfile';
-  profile.innerHTML = '<div class="gameResultIdentity"><div>user</div><div class="gameResultReality"><span>REALITY</span> 114.514</div></div><img class="gameResultAvatar" src="assets/result-avatar.png" alt="用户头像">';
+  profile.innerHTML = '<div class="gameResultIdentity"><div>user</div><div class="gameResultReality"><span>REALITY</span> 114.514</div></div><img class="gameResultAvatar" src="assets/result-avatar.webp" alt="用户头像">';
   resultHeader.appendChild(profile);
   overlay.appendChild(resultHeader);
   const gradeImage = document.createElement('img');
   gradeImage.id = 'gameResultGrade';
   gradeImage.className = 'gameResultGrade';
   gradeImage.alt = '评级';
-  (_overlay$querySelecto = overlay.querySelector('.gameResultScoreRow')) == null || _overlay$querySelecto.appendChild(gradeImage);
+  (_overlay$querySelecto = overlay.querySelector('.gameResultScoreRow')) == null ? void 0 : _overlay$querySelecto.appendChild(gradeImage);
   const backdrop = overlay.querySelector('.gameResultBackdrop'),
     cover = overlay.querySelector('#gameResultCover'),
     titleEl = overlay.querySelector('#gameResultTitle'),
@@ -92,7 +92,7 @@
   }
   const lightningEl = document.createElement('div');
   lightningEl.className = 'gameResultLightning';
-  (_overlay$querySelecto2 = overlay.querySelector('.gameResultRight')) == null || _overlay$querySelecto2.appendChild(lightningEl);
+  (_overlay$querySelecto2 = overlay.querySelector('.gameResultRight')) == null ? void 0 : _overlay$querySelecto2.appendChild(lightningEl);
   const showOrdinaryResult = showResult;
   showResult = function () {
     showOrdinaryResult();
@@ -103,7 +103,7 @@
     if (result) {
       const g = window.MilResultGrade == null ? void 0 : window.MilResultGrade(result.finalScore, result.counts, result.noteAmount);
       if (g) {
-        gradeImage.src = `assets/grades/${g.icon}.png`;
+        gradeImage.src = `assets/grades/${g.icon}.webp`;
         gradeImage.alt = `评级 ${g.name}${g.ap ? ' · ALL PERFECT' : g.fc ? ' · FULL COMBO' : ''}`;
         overlay.dataset.achievement = g.ap ? 'ap' : g.fc ? 'fc' : 'clear';
       }
@@ -119,7 +119,7 @@
   };
   window.__gpShowResult = showResult;
   window.__gpHideResult = hideResult;
-  restartBtn == null || restartBtn.addEventListener('click', e => {
+  restartBtn == null ? void 0 : restartBtn.addEventListener('click', e => {
     e.preventDefault();
     e.stopPropagation();
     dismissedForRuntime = null;
@@ -171,7 +171,7 @@
     }
     return ret;
   };
-  (_els$audioPlayer = els.audioPlayer) == null || _els$audioPlayer.addEventListener('ended', () => {
+  (_els$audioPlayer = els.audioPlayer) == null ? void 0 : _els$audioPlayer.addEventListener('ended', () => {
     if (state.appMode !== 'play' || !state.runtime) return;
     state.currentTime = state.duration || state.currentTime;
     render();

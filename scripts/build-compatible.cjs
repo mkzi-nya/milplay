@@ -36,12 +36,7 @@ const preset = [require.resolve('@babel/preset-env'), {
 for (const name of fs.readdirSync(path.join(root, 'js'))) {
   if (path.extname(name) !== '.js') continue;
   const source = path.join(root, 'js', name);
-  // Safari 12 does not decode WebP; checked-in PNGs preserve the same pixels.
-  const text = fs.readFileSync(source, 'utf8').replace(/assets\/([\w-]+)\.webp/g, (url, name) => {
-    const png = `assets/${name}.png`;
-    if (!fs.existsSync(path.join(root, png))) throw new Error(`Missing Safari texture: ${png}`);
-    return png;
-  });
+  const text = fs.readFileSync(source, 'utf8');
   const result = babel.transformSync(text, {
     filename: source,
     presets: [preset],

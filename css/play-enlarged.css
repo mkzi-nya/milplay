@@ -1,6 +1,5 @@
 html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll-behavior:none!important}
-/* Play-mode editor-control hiding lives in base.css + play-controls.css; this file only
-   owns the page-enlarged fallback shell. */
+/* Play-mode editor-control hiding lives in base.css + play-controls.css. */
 
 /* The enlarged player is literally the existing edit-mode stage promoted to a fixed layer. */
 .stageWrap.playExpanded{
@@ -25,9 +24,10 @@ html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll
 .stageWrap.playExpanded .stageInner{
   position:relative!important;
   left:auto!important;top:auto!important;
-  width:min(100vw,calc(100dvh * 16 / 9))!important;
-  height:min(100dvh,calc(100vw * 9 / 16))!important;
-  aspect-ratio:16/9!important;
+  width:100vw!important;
+  height:100vh!important;
+  height:100dvh!important;
+  aspect-ratio:auto!important;
   transform:none!important;
   transform-origin:50% 50%!important;
   background:#05070c!important;
@@ -37,9 +37,9 @@ html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll
   display:block!important;
   width:100%!important;
   height:100%!important;
-  aspect-ratio:16/9!important;
+  aspect-ratio:auto!important;
   transform:none!important;
-  object-fit:contain!important;
+  object-fit:fill!important;
 }
 .stageWrap.playExpanded .fsLeft,
 .stageWrap.playExpanded .corner{display:none!important}

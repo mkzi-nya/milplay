@@ -12,13 +12,14 @@ const legacySizing=!window.CSS||!CSS.supports('width','min(100vw, 100dvh)');
 function syncLegacySize(){
   if(!legacySizing||!els.stageInner)return;
   if(isNative()||isFallback()){
-    const ratio=state.stageRatio||16/9,w=Math.min(innerWidth,innerHeight*ratio);
+    const ratio=state.stageRatio||16/9,w=state.stageRatioCustom?Math.min(innerWidth,innerHeight*ratio):innerWidth;
     els.stageInner.style.setProperty('width',w+'px','important');
-    els.stageInner.style.setProperty('height',w/ratio+'px','important');
+    els.stageInner.style.setProperty('height',(state.stageRatioCustom?w/ratio:innerHeight)+'px','important');
   }else{
     els.stageInner.style.removeProperty('width');els.stageInner.style.removeProperty('height');
   }
 }
+window.__milSyncLegacyFullscreenSize=syncLegacySize;
 function clearOldExpanded(){wrap.classList.remove('playExpanded');document.documentElement.classList.remove('playExpandedRoot');document.body.classList.remove('playExpandedRoot')}
 async function unlockOrientation(){try{screen.orientation?.unlock?.()}catch{}}
 async function unlockKeyboard(){try{await navigator.keyboard?.unlock?.()}catch{}}
