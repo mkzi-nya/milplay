@@ -10,8 +10,10 @@ test('lightning avoids, triggers once, excludes fake and ordinary score; rewind 
   assert.deepEqual({...h.run('__gpLightningStats()')},{total:2,passed:1,missed:0,pending:1});
   assert.equal(h.run('__gpTest.gp.lightningEffects.length'),0);
   h.run('__gpTest.touchStart("key",{x:0,y:0},true,3);__gpTest.updateAt(3.01);__gpTest.updateAt(3.2)');
-  assert.equal(h.run('__gpLightningStats().missed'),1);
-  assert.equal(h.run('__gpScoreBreakdown().lightningHealth'),192);
+  assert.equal(h.run('__gpLightningStats().missed'),0);
+  assert.equal(h.run('__gpLightningStats().passed'),2);
+  assert.equal(h.run('__gpTest.gp.lightningEffects.length'),0);
+  assert.equal(h.run('__gpScoreBreakdown().lightningHealth'),256);
   assert.equal(h.run('__gpTest.gp.judgeSequence.length'),0);
   assert.equal(h.run('__gpScoreBreakdown().noteAmount'),0);
   h.run('__gpTest.rebuild(0)');assert.equal(h.run('__gpLightningStats().pending'),2);
@@ -25,6 +27,30 @@ test('lightning collision is half the ordinary note box and only hits emit effec
   assert.equal(h.run('__gpTest.isLightningHit(bolt,1,{x:offset.x,y:offset.y})'),false);
   h.run('window.rings=[];__plu100DrawRingMask=(...a)=>rings.push(a);window.particles=[];__pluDrawOneParticle=(...a)=>particles.push(a);__pluDrawHitRing(state.runtime,bolt,1.1,st,1280,720);__pluDrawParticles(state.runtime,bolt,1.1,st,1280,720);');
   assert.equal(h.run('rings.length+particles.length'),0);
+});
+test('keyboard never triggers lightning, even while held across the judgement line',()=>{
+  const h=lightning();h.run('__gpTest.touchStart("key:KeyA",{x:0,y:0},true,.98);__gpTest.advance(1);__gpTest.updateAt(1.1)');
+  assert.equal(h.run('__gpLightningStats().passed'),1);
+  assert.equal(h.run('__gpLightningStats().missed'),0);
+  assert.equal(h.run('__gpScoreBreakdown().lightningHealth'),256);
+});
+test('pointer contact triggers lightning only within its horizontal hitbox',()=>{
+  const h=lightning();
+  h.run('window.bolt=state.runtime.notes[0];window.st=transformLine(state.runtime,bolt.lineIdx,.98,1280,720);window.center=__pluNoteFrame(state.runtime,bolt,.98,st,1280,720).center;__gpTest.touchStart("pointer",{x:center.x,y:center.y},false,.98)');
+  assert.equal(h.run('__gpLightningStats().missed'),1);
+  assert.equal(h.run('__gpTest.gp.lightningEffects.length'),1);
+  assert.equal(h.run('__gpScoreBreakdown().lightningHealth'),192);
+});
+test('an untouched lightning note disappears exactly at the judgement line',()=>{
+  const h=setup();
+  h.run(`state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{startTime:1,endTime:1,type:2}]}],animations:[]});state.appMode='play';state.playing=true;__gpTest.fresh();window.bolt=state.runtime.notes[0];window.draws=0;state.images.fracture_legacy={naturalWidth:100,naturalHeight:80};__milDrawRotTinted=()=>draws++;`);
+  h.run('drawNote(state.runtime,bolt,.99,transformLine(state.runtime,0,.99,1280,720),1280,720)');
+  assert.equal(h.run('draws'),1);
+  h.run('drawNote(state.runtime,bolt,1,transformLine(state.runtime,0,1,1280,720),1280,720)');
+  assert.equal(h.run('draws'),1);
+  h.run('__gpTest.updateAt(1)');
+  assert.equal(h.run('__gpLightningStats().passed'),1);
+  assert.equal(h.run('__gpTest.gp.lightningEffects.length'),0);
 });
 test('lightning gauges stay hidden and gameplay score keeps its original white',()=>{
   const h=lightning();

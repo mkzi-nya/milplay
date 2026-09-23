@@ -21,8 +21,7 @@
   };
   const GP_HIT_STATES = new Set(['Exact', 'Perfect', 'Great', 'Good']);
   const GP_STEP = 1 / 120;
-  // Compatibility policy: original DLL contains signatures only, not the temporal
-  // predicate. Keep the provisional +/-50 ms lightning window explicit and isolated.
+  // Keep the provisional timing window separate from the spatial hitbox width.
   const GP_LIGHTNING_WINDOW = .05;
   const GP_LIGHTNING_HIT_RATIO = .5;
   const GP_EL_COLORS = {
@@ -78,7 +77,7 @@
     if (n.type === NOTE_FRACTURE) {
       var _gp$lightningResults;
       const result = (_gp$lightningResults = gp.lightningResults) == null ? void 0 : _gp$lightningResults.get(n.key);
-      return !!result && sec >= result.time;
+      return sec >= n.startSec || !!result && sec >= result.time;
     }
     const entry = gp.entries.get(n.key);
     return !!entry && entry.headJudged && entry.judgeHited && sec >= entry.judgeTime;
@@ -250,7 +249,7 @@
       gp.lastFixed = target - GP_STEP;
       return;
     }
-    while (gp.lightningCursor < gp.lightning.length && gp.lightning[gp.lightningCursor].startSec < target) {
+    while (gp.lightningCursor < gp.lightning.length && gp.lightning[gp.lightningCursor].startSec <= target) {
       const n = gp.lightning[gp.lightningCursor++];
       gp.lightningResults.set(n.key, {
         result: 'Pass',
@@ -512,7 +511,7 @@
   }
   function gpLightningHit(n, t, touch) {
     var _matchMedia3;
-    if (touch.isKey) return true;
+    if (touch.isKey) return false;
     const w = els.stage.width,
       h = els.stage.height,
       st = transformLine(gp.rt, n.lineIdx, t, w, h),
@@ -529,7 +528,7 @@
       jh = 2202.27645 / 1080 * h;
     const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null ? void 0 : (_matchMedia3 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia3.matches);
     const xOk = coarse ? Math.abs(dx) * (p.__screenXScale || 1) <= w / 12 * GP_LIGHTNING_HIT_RATIO : Math.abs(dx) <= jw / 2 * GP_LIGHTNING_HIT_RATIO;
-    return xOk && Math.abs(dy) <= jh / 2 * GP_LIGHTNING_HIT_RATIO;
+    return xOk && Math.abs(dy) <= jh / 2;
   }
   function gpLightningUpdate(t) {
     const notes = gp.lightning || [];
@@ -537,14 +536,14 @@
       const n = notes[i];
       if (gp.lightningResults.has(n.key)) continue;
       let hit = false;
-      if (t <= n.startSec + GP_LIGHTNING_WINDOW) for (const touch of gp.touches.values()) if (gpLightningHit(n, t, touch)) {
+      if (t <= n.startSec) for (const touch of gp.touches.values()) if (gpLightningHit(n, t, touch)) {
         hit = true;
         break;
       }
-      if (hit || t > n.startSec + GP_LIGHTNING_WINDOW) {
+      if (hit || t >= n.startSec) {
         gp.lightningResults.set(n.key, {
           result: hit ? 'Miss' : 'Pass',
-          time: t
+          time: hit ? t : n.startSec
         });
         const at = hit ? t : n.startSec,
           w = els.stage.width,
@@ -798,6 +797,7 @@
       gp.lastFixed = t - GP_STEP;
       gpUpdateAt(t);
     }
+    gpLightningUpdate(t);
   }
   /* The pure score module owns both formulae and the incremental cursor. */
   const score = window.MilScore,
