@@ -1008,7 +1008,7 @@ restoreSaved = async function(){
     if(bg){try{await setBackgroundFile(bg)}catch(e){__milClearBackground();report+='\n背景资源恢复失败：'+(e?.message||e)}}else __milClearBackground();if(media){try{await setMediaFile(media)}catch(e){__milClearMedia();report+='\n音频资源恢复失败：'+(e?.message||e)}}else __milClearMedia();
     report+='\n已恢复背景、音频与 Storyboard 本地资源。';
   }else{__milRevokePackageAssets();__milClearBackground();__milClearMedia();report+='\n未找到旧记录对应的资源缓存；外部图片/音频需要重新载入。'}
-  state.currentTime=saved.currentTime||0;state.rate=saved.rate||1;prepare(saved.chart,saved.fileName||'restored.json',report);els.restoreBar?.classList.remove('show');
+  state.currentTime=saved.currentTime||0;if(!window.__milHasSavedPlayerSettings)state.rate=saved.rate||1;prepare(saved.chart,saved.fileName||'restored.json',report);els.restoreBar?.classList.remove('show');
 };
 const __milClearSavedBeforeFullReview=clearSaved;
 clearSaved = async function(){await __milClearSavedBeforeFullReview();await idbDel(__MIL_ASSET_SAVE_KEY);__milRevokePackageAssets()};

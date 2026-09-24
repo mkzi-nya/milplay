@@ -106,6 +106,7 @@ function gpSetAutoplay(on){
   const box=document.getElementById('autoplayToggle');if(box&&box.checked!==gp.autoplay)box.checked=gp.autoplay;
   render();
 }
+window.__gpSetAutoplay=gpSetAutoplay;
 
 /* WebCanvas2DTransform operations copied algebraically from Utils.cs. */
 function gpMat(){return[1,0,0,1,0,0]}

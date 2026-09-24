@@ -3,17 +3,6 @@
 
   const wrap = els.stageWrap;
   if (!wrap) return;
-  let exitBtn = document.getElementById('nativeFsExit');
-  if (!exitBtn) {
-    exitBtn = document.createElement('button');
-    exitBtn.id = 'nativeFsExit';
-    exitBtn.className = 'nativeFsExit';
-    exitBtn.type = 'button';
-    exitBtn.textContent = '⛶';
-    exitBtn.title = '退出全屏';
-    exitBtn.setAttribute('aria-label', '退出全屏');
-    wrap.appendChild(exitBtn);
-  }
   const nativeElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
   const isNative = () => nativeElement() === wrap;
   const isFallback = () => wrap.classList.contains('nativePlayFullscreen');
@@ -103,13 +92,6 @@
   requestLandscapeFullscreen = async function () {
     if (isNative() || isFallback()) await leave();else await enter();
   };
-  exitBtn.addEventListener('click', e => {
-    e.preventDefault();
-    e.stopPropagation();
-    leave();
-  }, {
-    capture: true
-  });
   function sync() {
     if (!isNative() && !isFallback()) {
       if ((Number(window.__gpEscPauseGuardUntil) || 0) > performance.now()) wrap.classList.add('nativePlayFullscreen');else {

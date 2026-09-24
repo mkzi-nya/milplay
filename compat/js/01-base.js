@@ -3751,7 +3751,7 @@ restoreSaved = async function () {
     report += '\n未找到旧记录对应的资源缓存；外部图片/音频需要重新载入。';
   }
   state.currentTime = saved.currentTime || 0;
-  state.rate = saved.rate || 1;
+  if (!window.__milHasSavedPlayerSettings) state.rate = saved.rate || 1;
   prepare(saved.chart, saved.fileName || 'restored.json', report);
   (_els$restoreBar4 = els.restoreBar) == null || _els$restoreBar4.classList.remove('show');
 };

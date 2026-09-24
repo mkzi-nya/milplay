@@ -2,7 +2,6 @@
 @supports not (width: min(1px, 2px)) {
   .wrap{width:100%;max-width:1220px;padding:14px 12px 22px}
   h1{font-size:23px}
-  .nativeFsExit{top:8px;right:8px}
   .hudPause{left:8px}
 }
 @supports not (aspect-ratio: 16/9) {
@@ -11,8 +10,7 @@
   /* An unknown :fullscreen selector invalidates a whole selector list in Safari 12. */
   .stageWrap.nativePlayFullscreen{position:fixed!important;top:0!important;right:0!important;bottom:0!important;left:0!important;width:100vw!important;height:100vh!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;z-index:2147483000!important;overflow:hidden!important}
   .stageWrap.playExpanded .stageInner,.stageWrap.nativePlayFullscreen .stageInner,.stageWrap:-webkit-full-screen .stageInner{position:absolute!important;padding-bottom:0;left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%)!important;max-width:none!important;max-height:none!important}
-  .stageWrap.nativePlayFullscreen .nativeFsExit{display:block}
-  .stageWrap.nativePlayFullscreen .fsLeft,.stageWrap.nativePlayFullscreen .corner,.stageWrap.nativePlayFullscreen .playExpandedToggle{display:none!important}
+  .stageWrap.nativePlayFullscreen .fsLeft,.stageWrap.nativePlayFullscreen .corner{display:none!important}
 }
 @supports not (inset: 0) {
   .stageWrap.nativePlayFullscreen{top:0!important;right:0!important;bottom:0!important;left:0!important}

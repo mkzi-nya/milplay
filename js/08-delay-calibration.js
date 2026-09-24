@@ -23,19 +23,22 @@
   const feedbackTimers=[0,0,0,0];
   const beatPeriod=.5;
   function drumWav(){
-    const rate=22050,count=rate*2,bytes=new ArrayBuffer(44+count*2),view=new DataView(bytes);
+    // A long, seamless four-beat stream avoids the audible pause some mobile
+    // media players insert when looping a two-second WAV.
+    const rate=22050,duration=120,count=rate*duration,bytes=new ArrayBuffer(44+count*2),view=new DataView(bytes);
     const word=(at,value)=>view.setUint16(at,value,true),dword=(at,value)=>view.setUint32(at,value,true);
     for(const [at,label] of [[0,'RIFF'],[8,'WAVE'],[12,'fmt '],[36,'data']])for(let i=0;i<4;i++)view.setUint8(at+i,label.charCodeAt(i));
     dword(4,bytes.byteLength-8);dword(16,16);word(20,1);word(22,1);dword(24,rate);dword(28,rate*2);word(32,2);word(34,16);dword(40,count*2);
-    for(let i=0;i<count;i++){
-      const beat=Math.floor(i/(rate*beatPeriod)),t=i/rate-beat*beatPeriod;
-      let sample=0;
-      if(t<.18){
-        const strong=beat===3,frequency=strong?58:72,sweep=strong?110:65;
-        const phase=2*Math.PI*(frequency*t+sweep*(1-Math.exp(-25*t))/25);
-        sample=(strong?.8:.42)*Math.sin(phase)*Math.exp(-24*t)*(1-Math.exp(-1500*t));
+    const pulseSamples=Math.floor(rate*.08);
+    for(let beat=0;beat<duration/beatPeriod;beat++){
+      const strong=beat%4===3,gain=strong ? .86 : .62,start=Math.round(beat*beatPeriod*rate);
+      for(let j=0;j<pulseSamples;j++){
+        const t=j/rate,attack=Math.min(1,t/.0015),noise=(((j*1103515245+beat*12345)>>>16)&255)/127.5-1;
+        const click=.62*Math.sin(2*Math.PI*1600*t)+.27*Math.sin(2*Math.PI*2900*t)+.18*noise;
+        const body=strong ? .23*Math.sin(2*Math.PI*440*t) : 0;
+        const sample=gain*attack*(click*Math.exp(-52*t)+body*Math.exp(-33*t));
+        view.setInt16(44+(start+j)*2,Math.round(Math.max(-1,Math.min(1,sample))*32767),true);
       }
-      view.setInt16(44+i*2,Math.round(Math.max(-1,Math.min(1,sample))*32767),true);
     }
     return new Blob([bytes],{type:'audio/wav'});
   }

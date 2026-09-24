@@ -13,7 +13,7 @@
     continue:'<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 5v22l17-11z"/></svg>'
   };
   const makeButton=(label,className,icon)=>{const button=document.createElement('button');button.type='button';button.className=className;button.setAttribute('aria-label',label);button.innerHTML=icons[icon];actions.appendChild(button);return button};
-  const exitButton=makeButton('退出（暂不可用）','pauseMenuExit','exit');
+  const exitButton=makeButton('退出全屏','pauseMenuExit','exit');
   const restartButton=makeButton('重开','pauseMenuRestart','restart');
   const continueButton=makeButton('继续','pauseMenuContinue','continue');
   inner.appendChild(menu);
@@ -29,7 +29,7 @@
     if(primedMedia&&!keepPrimed){primedMedia.pause();primedMedia.muted=previousMute;primedMedia=null}
   }
   function showMenu(){menu.hidden=false;inner.classList.add('isPaused');els.stageWrap.classList.add('isPaused')}
-  function hideMenu(){menu.hidden=true;inner.classList.remove('isPaused');els.stageWrap.classList.remove('isPaused')}
+  function hideMenu(){menu.hidden=true;menu.classList.remove('seeking');inner.classList.remove('isPaused');els.stageWrap.classList.remove('isPaused')}
   setPlaying=function(value){
     if(value){stopCountdown(true);wasStarted=true;hideMenu()}
     const wasPlaying=state.playing;
@@ -64,8 +64,27 @@
     }
     tick();
   });
-  // The exit key is a visual placeholder until exit behavior is specified.
-  exitButton.addEventListener('click',e=>e.stopPropagation());
+  exitButton.addEventListener('click',e=>{
+    e.stopPropagation();
+    if((typeof window.__gpGameplayFullscreenActive==='function'&&window.__gpGameplayFullscreenActive())||els.stageWrap.classList.contains('playExpanded')){
+      if(typeof window.__gpLeaveGameplayFullscreen==='function')Promise.resolve(window.__gpLeaveGameplayFullscreen()).catch(()=>{});
+    }
+  });
+  const seekBar=inner.querySelector('.hudProgress')||Array.prototype.find.call(inner.children,node=>node.className==='hudProgress');
+  if(seekBar){
+    let scrubId=null;
+    const restore=e=>{
+      if(scrubId!==null&&(!e||e.pointerId===scrubId)){
+        scrubId=null;menu.classList.remove('seeking');
+      }
+    };
+    seekBar.addEventListener('pointerdown',e=>{
+      if(menu.hidden||state.playing||!state.runtime||!state.duration||e.isPrimary===false||e.button!==0)return;
+      scrubId=e.pointerId;menu.classList.add('seeking');
+    });
+    for(const type of ['pointerup','pointercancel','lostpointercapture'])seekBar.addEventListener(type,restore);
+    window.addEventListener('blur',()=>restore());
+  }
   const previousUpdateControls=updateControls;
   updateControls=function(){
     previousUpdateControls();

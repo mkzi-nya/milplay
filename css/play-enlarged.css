@@ -44,14 +44,10 @@ html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll
 .stageWrap.playExpanded .fsLeft,
 .stageWrap.playExpanded .corner{display:none!important}
 
-.playExpandedToggle{display:none;position:absolute;z-index:100004;top:10px;min-height:38px;height:38px;padding:0 13px;border:1px solid rgba(255,255,255,.24);border-radius:10px;background:rgba(0,0,0,.68);backdrop-filter:blur(8px);color:#fff;font-weight:800;line-height:36px;touch-action:manipulation}
-.playExpandedToggle{right:10px;min-width:42px;font-size:19px}
 .playExpandedSeek{display:none!important;pointer-events:none!important}
-.stageWrap.playExpanded .playExpandedToggle{display:block}
-.stageWrap.playExpanded .playExpandedToggle{pointer-events:auto}
-.hudPause{position:absolute;z-index:9;left:clamp(8px,2.5%,32px);top:0;width:42px;min-width:42px;height:42px;min-height:42px;box-sizing:border-box;margin:0;padding:0;border:0;border-radius:50%;background:rgba(139,145,157,.68);box-shadow:none;appearance:none;touch-action:none;cursor:pointer}
+.hudPause{position:absolute;z-index:9;left:clamp(8px,2.5%,32px);top:0;width:clamp(28px,3.3vw,42px);min-width:28px;height:clamp(28px,3.3vw,42px);min-height:28px;box-sizing:border-box;margin:0;padding:0;border:0;border-radius:50%;background:rgba(139,145,157,.68);box-shadow:none;appearance:none;touch-action:none;cursor:pointer}
 .hudPause:hover,.hudPause:active{background:rgba(155,161,174,.76);transform:none;box-shadow:none}
-.hudPause::before{content:"";position:absolute;left:16.5px;top:15px;width:9px;height:12px;box-sizing:border-box;border-left:2px solid #202632;border-right:2px solid #202632;opacity:1;pointer-events:none}
+.hudPause::before{content:"";position:absolute;left:50%;top:50%;width:clamp(6px,.7vw,9px);height:clamp(8px,.94vw,12px);box-sizing:border-box;border-left:2px solid #202632;border-right:2px solid #202632;transform:translate(-50%,-50%);opacity:1;pointer-events:none}
 .hudPause[data-hud-visible="false"]::before{opacity:0}
 .hudPause[data-hud-visible="false"]{background:transparent}
 .hudPause[data-awaiting-tap="true"]::after{content:"";position:absolute;inset:-4px;border:1.5px solid #fff;border-radius:50%;pointer-events:none}

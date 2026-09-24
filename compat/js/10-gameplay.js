@@ -294,6 +294,7 @@
     if (box && box.checked !== gp.autoplay) box.checked = gp.autoplay;
     render();
   }
+  window.__gpSetAutoplay = gpSetAutoplay;
 
   /* WebCanvas2DTransform operations copied algebraically from Utils.cs. */
   function gpMat() {

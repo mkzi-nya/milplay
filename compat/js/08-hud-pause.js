@@ -10,7 +10,9 @@ function createHudPause({
   inner.appendChild(button);
   // 与画布 score 的中心共用宽度比例；读取布局宽度可兼容竖屏旋转舞台。
   const position = () => {
-    button.style.top = `${Math.max(0, inner.clientWidth * .03958 - 21)}px`;
+    const viewport = Number(window.innerWidth) || inner.clientWidth;
+    const size = Math.min(42, Math.max(28, viewport * .033));
+    button.style.top = `${Math.max(0, inner.clientWidth * .03958 - size / 2)}px`;
   };
   new ResizeObserver(position).observe(inner);
   position();

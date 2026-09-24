@@ -1,6 +1,8 @@
 .pauseMenu,.pauseCountdown{position:absolute;inset:0;z-index:11}
 .pauseMenu[hidden],.pauseCountdown[hidden]{display:none!important}
 .pauseMenuShade{position:absolute;inset:0;background:rgba(0,0,0,.86)}
+.pauseMenu.seeking{pointer-events:none}
+.pauseMenu.seeking .pauseMenuShade,.pauseMenu.seeking .pauseMenuContent{display:none}
 .pauseMenuContent{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
 .pauseMenuActions{display:flex;align-items:center;justify-content:center;gap:clamp(20px,6.9vw,88px);pointer-events:auto}
 .pauseMenuActions button{display:grid;place-items:center;width:clamp(44px,5vw,64px);height:clamp(44px,5vw,64px);min-width:0;min-height:0;padding:0;border:0;border-radius:50%;color:#1e2630;cursor:pointer;touch-action:manipulation;transform:none;filter:none}
@@ -9,6 +11,9 @@
 .pauseMenuActions .pauseMenuExit{background:#ff5b4c;box-shadow:0 0 15px #ff5b4c88}
 .pauseMenuActions .pauseMenuRestart{background:#ffbd57;box-shadow:0 0 15px #ffbd5788}
 .pauseMenuActions .pauseMenuContinue{background:#95ccff;box-shadow:0 0 15px #95ccff88}
-.stageWrap.isPaused .playExpandedToggle,.stageWrap.isPaused .nativeFsExit{display:none!important}
+.stageInner.isPaused .hudProgress{z-index:12}
+.stageInner.isPaused .hudProgress::before,.stageInner.isPaused .hudProgress::after{content:"";position:absolute;left:0;top:0;height:2px;pointer-events:none}
+.stageInner.isPaused .hudProgress::before{width:100%;background:rgba(255,255,255,.35)}
+.stageInner.isPaused .hudProgress::after{width:var(--hud-progress,0%);min-width:3px;background:#fff}
 .pauseCountdown{display:grid;place-items:center;color:white;font-size:clamp(76px,15vw,200px);font-weight:300;text-shadow:0 4px 20px #000;pointer-events:none}
 body:not([data-mode="play"]) .pauseMenu,body:not([data-mode="play"]) .pauseCountdown{display:none!important}

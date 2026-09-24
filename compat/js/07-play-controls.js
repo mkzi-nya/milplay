@@ -3,6 +3,12 @@
   const flowSpeed = document.getElementById('playFlowSpeedInput');
   const displayToRenderSpeed = value => value * 1.66 / 7;
   const renderToDisplaySpeed = value => value * 7 / 1.66;
+  const enteredSpeed = () => {
+    const raw = flowSpeed && String(flowSpeed.value).trim();
+    if (!raw) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? Math.max(.1, value) : null;
+  };
   const hudProgress = createHudProgress({
     state,
     stage: els.stage,
@@ -35,7 +41,8 @@
     render();
   });
   flowSpeed == null || flowSpeed.addEventListener('change', () => {
-    state.flowSpeed = displayToRenderSpeed(clamp(Number(flowSpeed.value) || 7, .5, 12));
+    const value = enteredSpeed();
+    if (value !== null) state.flowSpeed = displayToRenderSpeed(value);
     flowSpeed.value = renderToDisplaySpeed(state.flowSpeed).toFixed(1);
     render();
   });
@@ -44,8 +51,11 @@
     render();
   });
   flowSpeed == null || flowSpeed.addEventListener('input', () => {
-    state.flowSpeed = displayToRenderSpeed(clamp(Number(flowSpeed.value) || 7, .5, 12));
-    render();
+    const value = enteredSpeed();
+    if (value !== null) {
+      state.flowSpeed = displayToRenderSpeed(value);
+      render();
+    }
   });
 
   // In play mode the fullscreen control remains available; editor inspection controls stay hidden.

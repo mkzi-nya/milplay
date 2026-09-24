@@ -23,6 +23,7 @@ function createHudProgress({state,stage,inner,seek}){
     slider.setAttribute('aria-valuemax',String(duration));
     slider.setAttribute('aria-valuenow',String(Math.max(0,Math.min(duration,state.currentTime||0))));
     slider.setAttribute('aria-valuetext',`${(state.currentTime||0).toFixed(3)} / ${duration.toFixed(3)} s`);
+    if(slider.style?.setProperty)slider.style.setProperty('--hud-progress',`${duration?Math.max(0,Math.min(100,(state.currentTime||0)/duration*100)):0}%`);
     if(!enabled&&document.activeElement===slider)slider.blur();
   }
   function valid(){

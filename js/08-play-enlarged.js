@@ -10,9 +10,6 @@
   }
 
   const pause=createHudPause({state,inner,setPlaying:v=>setPlaying(v)});
-  const shrink=document.createElement('button');
-  shrink.id='playExpandedToggle';shrink.className='playExpandedToggle';shrink.type='button';shrink.textContent='⛶';shrink.title='退出放大';shrink.setAttribute('aria-label','退出放大');
-  wrap.append(shrink);
 
   const syncExpandedControls=()=>{
     pause.sync();
@@ -46,17 +43,12 @@
 
   // Replace the historical native-fullscreen/orientation-lock path.
   requestLandscapeFullscreen=async function(){setExpanded(!wrap.classList.contains('playExpanded'))};
-  shrink.addEventListener('click',e=>{e.stopPropagation();setExpanded(false)});
 
   // No double-tap pause on the playfield. Multi-touch releases must be reserved
   // exclusively for judgement input; pause remains an explicit UI action.
 
   window.addEventListener('resize',()=>{if(wrap.classList.contains('playExpanded'))resync()},{passive:true});
   window.addEventListener('orientationchange',()=>{if(wrap.classList.contains('playExpanded'))resync()},{passive:true});
-  window.addEventListener('keydown',e=>{
-    if(e.key==='Escape'&&wrap.classList.contains('playExpanded')){e.preventDefault();setExpanded(false)}
-  },true);
-
   // If a browser restored a stale native fullscreen state from an older build, leave it cleanly.
   if(document.fullscreenElement||document.webkitFullscreenElement){
     try{(document.exitFullscreen?.()||document.webkitExitFullscreen?.())?.catch?.(()=>{})}catch{}
