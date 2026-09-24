@@ -82,6 +82,11 @@
     const entry = gp.entries.get(n.key);
     return !!entry && entry.headJudged && entry.judgeHited && sec >= entry.judgeTime;
   };
+  window.__gpHoldMissed = function (n, sec) {
+    if (!gpIsPlay() || gp.autoplay || !n.isHold || n.isFake) return false;
+    const entry = gp.entries.get(n.key);
+    return !!entry && entry.judgeIsMiss && sec >= entry.judgeMissTime;
+  };
   function gpEntry(n) {
     let e = gp.entries.get(n.key);
     if (!e) {

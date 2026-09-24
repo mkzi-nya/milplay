@@ -13,7 +13,7 @@ function setup(){
     setPointerCapture(id){this.capture=id}
     releasePointerCapture(){this.capture=null;this.emit('lostpointercapture')}
     focus(){document.activeElement=this}
-    getBoundingClientRect(){const top=parseFloat(this.style.top);return {left:0,right:28,top,bottom:top+28}}
+    getBoundingClientRect(){const top=parseFloat(this.style.top);return {left:0,right:42,top,bottom:top+42}}
     emit(type,props={}){
       const e={target:this,pointerId:1,pointerType:'touch',isPrimary:true,button:0,clientX:14,clientY:14,
         preventDefault(){this.prevented=true},stopPropagation(){this.stopped=true},stopImmediatePropagation(){this.stopped=true},...props};
@@ -34,12 +34,17 @@ function setup(){
   function tap(props={}){event('pointerdown',props);now+=20;event('pointerup',props);button.emit('click',{detail:1});now+=60}
    return {state,window,document,button,pause,calls,event,tap,advance:n=>now+=n,resize:width=>{inner.clientWidth=width;resize()}};
 }
-test('touch needs two local taps within 300ms; paused touch resumes once',()=>{
+test('touch needs two local taps within one second; paused touch resumes once',()=>{
   const h=setup();h.tap();assert.deepEqual(h.calls,[]);h.tap();assert.deepEqual(h.calls,[false]);
   h.tap();assert.deepEqual(h.calls,[false,true]);h.tap();assert.deepEqual(h.calls,[false,true]);
 });
-test('desktop pointer clicks and accessible clicks toggle exactly once',()=>{
-  const h=setup();h.tap({pointerType:'mouse'});assert.deepEqual(h.calls,[false]);
+test('first touch shows a circle while awaiting the second tap',()=>{
+  const h=setup();h.tap();assert.equal(h.button.attrs['data-awaiting-tap'],'true');
+  h.advance(500);h.tap();assert.deepEqual(h.calls,[false]);assert.equal(h.button.attrs['data-awaiting-tap'],'false');
+});
+test('desktop pointer also needs two clicks; accessible click remains operable',()=>{
+  const h=setup();h.tap({pointerType:'mouse'});assert.deepEqual(h.calls,[]);
+  h.tap({pointerType:'mouse'});assert.deepEqual(h.calls,[false]);
   h.button.emit('click',{detail:0});assert.deepEqual(h.calls,[false,true]);
   h.tap({pointerType:'mouse',button:2});assert.deepEqual(h.calls,[false,true]);
 });
@@ -66,7 +71,7 @@ test('stale taps are cleared by outside hits, multitouch, cancel, focus, chart, 
     h=>{h.state.runtime={};h.pause.sync()},
     h=>{h.state.playing=false;h.pause.sync();h.state.playing=true;h.pause.sync()},
     h=>{h.state.appMode='edit';h.pause.sync();h.state.appMode='play';h.pause.sync()},
-    h=>h.advance(301),
+    h=>h.advance(1001),
   ]){const h=setup();h.tap();interrupt(h);h.tap();assert.deepEqual(h.calls,[])}
 });
 test('long press, movement, release outside and lost capture invalidate the tap pair',()=>{
@@ -88,7 +93,7 @@ test('wiring preserves original range and synchronizes HUD after rendering',()=>
   assert.doesNotMatch(js,/createElement\('input'\)|playExpandedPause/);
   assert.match(html,/id="timeSlider"[^>]*type="range"/);
   assert.match(css,/\.hudPause\[data-hud-visible="false"\]::before\{opacity:0\}/);
-   assert.match(css,/width:28px;min-width:28px;height:28px;min-height:28px/);
+   assert.match(css,/width:42px;min-width:42px;height:42px;min-height:42px/);
    assert.doesNotMatch(source('css/final-fullscreen.css'),/hudPause|playExpandedPause/);
 });
 test('pause follows score center on stage resize, including rotated portrait layout width',()=>{
@@ -97,19 +102,19 @@ test('pause follows score center on stage resize, including rotated portrait lay
     h.resize(width);
     const rect=h.button.getBoundingClientRect();
     assert.ok(Math.abs((rect.top+rect.bottom)/2-width*.03958)<.001||rect.top===0);
-    assert.ok(Math.abs(rect.bottom-rect.top-28)<.001);
+    assert.ok(Math.abs(rect.bottom-rect.top-42)<.001);
     assert.ok(rect.top>=0);
   }
 });
-test('transparent pause target overrides generic button chrome and sits above progress hit area',()=>{
+test('circular pause target sits above progress hit area',()=>{
   const css=source('css/play-enlarged.css'),progress=source('css/play-controls.css');
   const declarations=selector=>Object.fromEntries(css.split(`${selector}{`)[1].split('}')[0].split(';').filter(Boolean).map(s=>s.split(':')));
   const button=declarations('.hudPause'),icon=declarations('.hudPause::before');
-  for(const [key,value]of Object.entries({padding:'0',margin:'0',border:'0','border-radius':'0',background:'transparent','box-shadow':'none',appearance:'none','box-sizing':'border-box','min-height':'28px'}))assert.equal(button[key],value,key);
+  for(const [key,value]of Object.entries({padding:'0',margin:'0',border:'0','border-radius':'50%',background:'rgba(139,145,157,.68)','box-shadow':'none',appearance:'none','box-sizing':'border-box','min-height':'42px'}))assert.equal(button[key],value,key);
   const active=declarations('.hudPause:hover,.hudPause:active');
-  assert.equal(active.background,'transparent');assert.equal(active.transform,'none');assert.equal(active['box-shadow'],'none');
+  assert.equal(active.background,'rgba(155,161,174,.76)');assert.equal(active.transform,'none');assert.equal(active['box-shadow'],'none');
   assert.equal(icon.width,'9px');assert.equal(icon.height,'12px');
-  assert.equal(icon['border-left'],'2px solid #fff');assert.equal(icon['border-right'],'2px solid #fff');
+  assert.equal(icon['border-left'],'2px solid #202632');assert.equal(icon['border-right'],'2px solid #202632');
   assert.equal(icon['pointer-events'],'none');
   assert.ok(Number(button['z-index'])>Number(progress.match(/\.hudProgress\{[^}]*z-index:(\d+)/)[1]));
   // 小舞台暂停命中区进入顶部 24px 时，仍必须能双击暂停、单击继续。
@@ -129,7 +134,7 @@ test('complete script chain retains per-render HUD synchronization',()=>{
    assert.ok(button);
    assert.equal(h.get('stageInner').children.filter(node=>node.className==='hudPause').length,1);
    assert.equal(h.run('els.fsPlayBtn'),null);assert.ok(h.get('playBtn'));
-   assert.equal(parseFloat(button.style.top),1280*.03958-14);
+   assert.equal(parseFloat(button.style.top),1280*.03958-21);
   h.run('state.hudVisible=false;render()');assert.equal(button['data-hud-visible'],'false');
   h.run('state.hudVisible=undefined;render()');assert.equal(button['data-hud-visible'],'true');
 });

@@ -1,6 +1,8 @@
 (() => {
   const noteScale = document.getElementById('playNoteScaleInput');
   const flowSpeed = document.getElementById('playFlowSpeedInput');
+  const displayToRenderSpeed = value => value * 1.66 / 7;
+  const renderToDisplaySpeed = value => value * 7 / 1.66;
   const hudProgress = createHudProgress({
     state,
     stage: els.stage,
@@ -14,7 +16,7 @@
   };
   const syncTuneControls = () => {
     if (noteScale) noteScale.value = String(Number.isFinite(state.noteScale) ? state.noteScale : 1);
-    if (flowSpeed) flowSpeed.value = String(Number.isFinite(state.flowSpeed) ? state.flowSpeed : 1.66);
+    if (flowSpeed) flowSpeed.value = renderToDisplaySpeed(Number.isFinite(state.flowSpeed) ? state.flowSpeed : 1.66).toFixed(1);
     hudProgress.sync();
   };
   const oldUpdateControls = updateControls;
@@ -33,8 +35,8 @@
     render();
   });
   flowSpeed == null || flowSpeed.addEventListener('change', () => {
-    state.flowSpeed = clamp(Number(flowSpeed.value) || 1.66, .1, 8);
-    flowSpeed.value = String(state.flowSpeed);
+    state.flowSpeed = displayToRenderSpeed(clamp(Number(flowSpeed.value) || 7, .5, 12));
+    flowSpeed.value = renderToDisplaySpeed(state.flowSpeed).toFixed(1);
     render();
   });
   noteScale == null || noteScale.addEventListener('input', () => {
@@ -42,7 +44,7 @@
     render();
   });
   flowSpeed == null || flowSpeed.addEventListener('input', () => {
-    state.flowSpeed = clamp(Number(flowSpeed.value) || 1.66, .1, 8);
+    state.flowSpeed = displayToRenderSpeed(clamp(Number(flowSpeed.value) || 7, .5, 12));
     render();
   });
 

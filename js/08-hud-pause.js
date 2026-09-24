@@ -4,14 +4,15 @@ function createHudPause({state,inner,setPlaying}){
   button.className='hudPause';button.type='button';
   inner.appendChild(button);
   // 与画布 score 的中心共用宽度比例；读取布局宽度可兼容竖屏旋转舞台。
-  const position=()=>{button.style.top=`${Math.max(0,inner.clientWidth*.03958-14)}px`};
+  const position=()=>{button.style.top=`${Math.max(0,inner.clientWidth*.03958-21)}px`};
   new ResizeObserver(position).observe(inner);
   position();
-  let press=null,lastTap=null,runtime=state.runtime,playing=state.playing,mode=state.appMode;
+  let press=null,lastTap=null,tapTimer=0,runtime=state.runtime,playing=state.playing,mode=state.appMode;
   const pointers=new Set();
   const available=()=>state.appMode==='play'&&!!state.runtime;
   function clear(){
     const old=press;press=null;lastTap=null;
+    if(tapTimer&&typeof clearTimeout==='function')clearTimeout(tapTimer);tapTimer=0;button.setAttribute('data-awaiting-tap','false');
     if(old){try{button.releasePointerCapture(old.id)}catch{}}
   }
   function sync(){
@@ -47,9 +48,12 @@ function createHudPause({state,inner,setPlaying}){
     press=null;
     try{button.releasePointerCapture(e.pointerId)}catch{}
     if(now-p.at>300||Math.hypot(e.clientX-p.x,e.clientY-p.y)>8||e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom){clear();return}
-    if(!p.touch||!state.playing){toggle();return}
-    if(lastTap&&now-lastTap.at<=300&&Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<=12){toggle();return}
+    if(!state.playing){toggle();return}
+    if(lastTap&&now-lastTap.at<=1000&&Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<=12){toggle();return}
     lastTap={at:now,x:e.clientX,y:e.clientY};
+    button.setAttribute('data-awaiting-tap','true');
+    if(tapTimer&&typeof clearTimeout==='function')clearTimeout(tapTimer);
+    if(typeof setTimeout==='function')tapTimer=setTimeout(()=>{lastTap=null;button.setAttribute('data-awaiting-tap','false');tapTimer=0},1000);
   });
   button.addEventListener('lostpointercapture',()=>{if(press)clear()});
   button.addEventListener('pointercancel',clear);

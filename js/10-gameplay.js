@@ -33,6 +33,11 @@ window.__gpNoteShouldHide=function(n,sec){
   const entry=gp.entries.get(n.key);
   return !!entry&&entry.headJudged&&entry.judgeHited&&sec>=entry.judgeTime;
 };
+window.__gpHoldMissed=function(n,sec){
+  if(!gpIsPlay()||gp.autoplay||!n.isHold||n.isFake)return false;
+  const entry=gp.entries.get(n.key);
+  return !!entry&&entry.judgeIsMiss&&sec>=entry.judgeMissTime;
+};
 function gpEntry(n){
   let e=gp.entries.get(n.key);
   if(!e){e={judgeState:'Miss',judgeTime:n.startSec+Math.max(GP_WINDOWS.Bad*2,.14),judgeHited:false,judgeIsMiss:false,judgeMissTime:n.endSec,

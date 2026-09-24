@@ -14,6 +14,22 @@ test('a judged Tap vanishes immediately while Hold remains visible',()=>{
   assert.ok(h.run('draws.length')>0);
 });
 
+test('a missed or interrupted Hold turns subtly red',()=>{
+  for(const interrupted of [false,true]){
+    const h=setup();
+    h.run(`state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{startTime:1,endTime:3,type:0}]}],animations:[]});state.appMode='play';state.playing=true;__gpTest.fresh();window.rt=state.runtime;window.hold=rt.notes[0];window.colors=[];state.images.hold={naturalWidth:100,naturalHeight:80};__milTintSlice=(...args)=>colors.push(args[9].slice());`);
+    h.run('drawNote(rt,hold,.9,transformLine(rt,0,.9,1280,720),1280,720)');
+    assert.deepEqual(Array.from(h.run('colors[0]')).slice(0,3),[255,255,255]);
+    h.run('colors.length=0');
+    if(interrupted)h.run(`__gpTest.touchStart('hold-key',{x:0,y:0},true,1);__gpTest.touchEnd('hold-key',{x:0,y:0},1.5);__gpTest.updateAt(1.56)`);
+    else h.run('__gpTest.updateAt(1.16)');
+    assert.equal(h.run('__gpHoldMissed(hold,state.currentTime)'),false);
+    h.run(`drawNote(rt,hold,${interrupted?'1.57':'1.17'},transformLine(rt,0,${interrupted?'1.57':'1.17'},1280,720),1280,720)`);
+    assert.ok(h.run('colors.length')>0);
+    assert.deepEqual(Array.from(h.run('colors[0]')).slice(0,3),[255,209,209]);
+  }
+});
+
 test('autoplay hides non-Hold notes at contact, fake notes retain chart rendering',()=>{
   const h=setup();
   h.run(`state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{startTime:1,endTime:1,type:0},{startTime:2,endTime:2,type:1},{startTime:3,endTime:3,type:2},{startTime:4,endTime:4,type:0,isFake:true},{startTime:5,endTime:6,type:0}]}],animations:[]});state.appMode='play';__gpTest.fresh();__gpTest.gp.autoplay=true;window.ns=state.runtime.notes;`);

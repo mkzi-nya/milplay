@@ -6,7 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 
 function createHarness(root,opts={}){
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  const ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1])),nodes=new Map(),messages=new Set(),images=[],revoked=[];
+  const ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1])),nodes=new Map(),messages=new Set(),windowEvents=new Map(),images=[],revoked=[];
   const noop=()=>{},raf=[];
   const canvasContext=()=>new Proxy({measureText:s=>({width:String(s).length*20}),createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),globalAlpha:1},{get:(o,k)=>k in o?o[k]:noop});
   let serial=0;
@@ -34,11 +34,16 @@ function createHarness(root,opts={}){
   function get(id){if(!ids.has(id))return null;if(!nodes.has(id)){const e=new Element(id==='stage'?'canvas':'div');e.id=id;nodes.set(id,e)}return nodes.get(id)}
   class ImageFake{constructor(){images.push(this);this.complete=false;this.naturalWidth=0;this.naturalHeight=0}set src(s){this._src=s}get src(){return this._src}ready(w=64,h=64){this.complete=true;this.naturalWidth=w;this.naturalHeight=h;this.onload?.()}}
   const document={body:new Element(),head:new Element(),documentElement:new Element(),getElementById:get,createElement:t=>new Element(t),addEventListener:noop,querySelector:()=>null,querySelectorAll:()=>[],activeElement:{tagName:'BODY'},scripts:[]};
-  const context=vm.createContext({console,document,Image:ImageFake,HTMLCanvasElement:Element,Blob,File,TextDecoder,TextEncoder,Response,DecompressionStream,performance,URL:{createObjectURL:()=>`blob:test-${++serial}`,revokeObjectURL:u=>revoked.push(u)},navigator:{language:'en-US',maxTouchPoints:1},matchMedia:()=>({matches:false,addEventListener:noop}),screen:{orientation:{}},devicePixelRatio:1,innerWidth:1280,innerHeight:720,requestAnimationFrame:f=>(raf.push(f),raf.length),cancelAnimationFrame:noop,setTimeout,clearTimeout,queueMicrotask,ResizeObserver:class{observe(){}},localStorage:{getItem:()=>null,setItem:noop,removeItem:noop},addEventListener:(t,f)=>{if(t==='message')messages.add(f)},removeEventListener:(t,f)=>{if(t==='message')messages.delete(f)}});
+  const context=vm.createContext({console,document,Image:ImageFake,HTMLCanvasElement:Element,Blob,File,TextDecoder,TextEncoder,Response,DecompressionStream,performance,URL:{createObjectURL:()=>`blob:test-${++serial}`,revokeObjectURL:u=>revoked.push(u)},navigator:{language:'en-US',maxTouchPoints:1},matchMedia:()=>({matches:false,addEventListener:noop}),screen:{orientation:{}},devicePixelRatio:1,innerWidth:1280,innerHeight:720,requestAnimationFrame:f=>(raf.push(f),raf.length),cancelAnimationFrame:noop,setTimeout,clearTimeout,queueMicrotask,ResizeObserver:class{observe(){}},localStorage:{getItem:()=>null,setItem:noop,removeItem:noop},addEventListener:(t,f)=>{if(t==='message')messages.add(f);if(!windowEvents.has(t))windowEvents.set(t,new Set());windowEvents.get(t).add(f)},removeEventListener:(t,f)=>{if(t==='message')messages.delete(f);windowEvents.get(t)?.delete(f)}});
   context.window=context;context.globalThis=context;
   const run=s=>vm.runInContext(s,context,{timeout:opts.timeout||60000});
   for(const m of html.matchAll(/<script src="([^"]+)"/g))vm.runInContext(fs.readFileSync(path.join(root,m[1]),'utf8'),context,{filename:m[1],timeout:opts.timeout||60000});
-  return {html,context,run,images,revoked,messages,get};
+  const emitWindowEvent=(type,event={})=>{
+    const e={type,target:document.activeElement,preventDefault(){this.prevented=true},stopPropagation(){this.stopped=true},stopImmediatePropagation(){this.stopped=true},...event};
+    for(const fn of windowEvents.get(type)||[]){fn(e);if(e.stopped)break}
+    return e;
+  };
+  return {html,context,run,images,revoked,messages,get,emitWindowEvent};
 }
 
 module.exports={createHarness};

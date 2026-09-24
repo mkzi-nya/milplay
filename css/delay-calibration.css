@@ -1,0 +1,16 @@
+.delayCalibrationOpen{min-height:32px;padding:5px 13px}
+.delayCalibration{position:fixed;z-index:2147483645;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 24px));box-sizing:border-box;padding:20px;border:1px solid #66717c;border-radius:16px;background:#111924;color:#fff;box-shadow:0 20px 70px #000b}
+.delayCalibration[hidden]{display:none!important}
+.delayCalibrationHead{display:flex;justify-content:space-between;align-items:center;font-size:20px}
+.delayCalibrationHead button{min-width:34px;min-height:34px;padding:0;background:transparent;border:0;color:#fff;font-size:28px}
+.delayCalibration p{margin:10px 0;color:#b6c2cf;font-size:13px;line-height:1.5}
+.delayCalibrationTap{display:grid;grid-template-columns:repeat(4,1fr);height:180px;margin:20px 0 16px;border:1px solid #435063;border-radius:10px;background:#0a1019;touch-action:manipulation;cursor:pointer;outline-offset:3px}
+.delayCalibrationLane{position:relative;display:flex;justify-content:center;align-items:center;border-right:1px solid #263341}
+.delayCalibrationLane:last-child{border-right:0}
+.delayCalibrationLine{height:95px;border-left:2px solid #94a4b8;transition:border-color .08s,box-shadow .08s}
+.delayCalibrationLane.strong .delayCalibrationLine{border-left-width:4px;border-color:#ffca75}
+.delayCalibrationLane.active .delayCalibrationLine,.delayCalibrationLane.tapped .delayCalibrationLine{border-color:white;box-shadow:0 0 16px #fff}
+.delayCalibrationOffset{position:absolute;left:50%;top:calc(50% + 52px);transform:translateX(-50%);white-space:nowrap;font-size:12px;color:#eaf3ff}
+.delayCalibrationField{display:flex;align-items:center;gap:8px;color:#d9e3ed}
+.delayCalibrationField input{width:100px;min-height:32px}
+.delayCalibrationStatus{min-height:1.5em}

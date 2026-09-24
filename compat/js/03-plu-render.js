@@ -620,6 +620,10 @@ drawNote = function (rt, n, sec, st, w, h) {
       img = imgFor(key),
       texRot = frame.rotation,
       radius = Math.max(2, visualW * .42);
+    if (n.isHold && state.appMode === 'play' && window.__gpHoldMissed != null && window.__gpHoldMissed(n, sec)) {
+      noteColor[1] = Math.round(noteColor[1] * .82);
+      noteColor[2] = Math.round(noteColor[2] * .82);
+    }
     if (n.isHold) {
       let dx = tail.x - center.x,
         dy = tail.y - center.y,
