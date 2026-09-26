@@ -216,7 +216,8 @@ const state = {
   audioDelay: .11,
   audioVolume: 1,
   mediaReady: false,
-  mediaSyncing: false
+  mediaSyncing: false,
+  externalChartMeta: null
 };
 const CHART_RE = /\.(json|js|txt)$/i;
 const JSONL_RE = /\.jsonl$/i;
@@ -892,8 +893,10 @@ function updateUI() {
   if (!rt) return;
   (_els$playerCard = els.playerCard) == null || _els$playerCard.classList.add('ready');
   const m = rt.meta || {},
-    title = m.Title || m.name || state.fileName,
-    sub = [m.Difficulty || m.difficulty_name, m.Composer || m.music_artist, m.Beatmapper].filter(Boolean).join(' / ');
+    custom = state.externalChartMeta,
+    title = custom && custom.title || m.Title || m.name || state.fileName,
+    customDifficulty = [custom && custom.difficultyName, custom && custom.difficultyLevel].filter(x => x != null && String(x).trim()).join(' '),
+    sub = custom ? [customDifficulty, custom.illustrator && '画师：' + custom.illustrator, custom.composer && '曲师：' + custom.composer, custom.charter && '谱师：' + custom.charter].filter(Boolean).join(' / ') : [m.Difficulty || m.difficulty_name, m.Composer || m.music_artist, m.Beatmapper].filter(Boolean).join(' / ');
   if (els.songTitle) els.songTitle.textContent = title;
   if (els.songSub) els.songSub.textContent = sub || state.fileName;
   state.duration = rt.duration;

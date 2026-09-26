@@ -11,9 +11,13 @@
   function __pkgIsChart(name) {
     return /\.(?:js|mjs|cjs|json)$/i.test(String(name || '')) && !/\.jsonl$/i.test(String(name || '')) && !__pkgIsMeta(name);
   }
+  let __pkgStoryboardPath = '';
   function __pkgIsStoryboardPath(name) {
     const p = __milNormalizePath(name);
-    return /(?:^|\/)(?:storyboard|storyboards)(?:\/|$)/i.test(p);
+    const root = __milNormalizePath(__pkgStoryboardPath),
+      low = p.toLowerCase(),
+      lowRoot = root.toLowerCase();
+    return /(?:^|\/)(?:storyboard|storyboards)(?:\/|$)/i.test(p) || !!root && (low === lowRoot || low.indexOf(lowRoot + '/') === 0);
   }
   function __pkgIsAudio(name) {
     return /\.(?:ogg|oga|opus|mp3|mp2|mpeg|wav|wave|flac|m4a|aac|aif|aiff|caf|weba|mp4|webm|mov)$/i.test(String(name || ''));
@@ -301,6 +305,87 @@
     return [...new Set(out)];
   }
 
+  const __MILPLAY_META_KEY='mkzi-nya.github.io/milplay/';
+  const __pkgMetaAliases={
+    title:['谱面名称','chartname','songname','title','name'],illustrator:['画师','illustrator','illustratorname'],composer:['曲师','composer','musicartist','artist'],charter:['谱师','charter','beatmapper'],
+    difficultyName:['难度等级名称','difficultylevelname','difficultyname','difficulty_name','levelname','rank','difficulty'],difficultyLevel:['难度等级','difficultylevel','difficulty_level','level','rating','constant'],delay:['谱面延迟','chartdelay','chart_delay','delay','offset'],
+    chart:['chartpath','chartpaths','chart path','谱面路径','chart','charts'],music:['musicpath','musicpaths','music path','audiopath','audiopaths','audio path','音乐路径','音频路径','music','audio'],image:['imagepath','imagepaths','image path','picturepath','picturepaths','图片路径','illustrationpath','illustrationpaths','image','images','picture','illustration'],storyboard:['storyboardpath','storyboard path','故事板路径','storyboard']
+  };
+  function __pkgMetaKey(name){return String(name||'').toLowerCase().replace(/[\s_.-]+/g,'')}
+  function __pkgMetaField(record,kind){
+    if(!record||typeof record!=='object')return undefined;
+    const aliases=__pkgMetaAliases[kind].map(__pkgMetaKey);
+    for(const key of Object.keys(record))if(aliases.includes(__pkgMetaKey(key)))return record[key];
+    return undefined;
+  }
+  function __pkgMetaValues(value){
+    if(value==null)return[];
+    if(Array.isArray(value)){const out=[];for(const item of value)out.push(...__pkgMetaValues(item));return out}
+    if(typeof value==='object'){
+      for(const key of ['path','file','value','路径','文件'])if(Object.prototype.hasOwnProperty.call(value,key))return __pkgMetaValues(value[key]);
+      return Object.keys(value).reduce((out,key)=>out.concat(__pkgMetaValues(value[key])),[]);
+    }
+    const text=String(value).trim();return text?[text]:[];
+  }
+  function __pkgMetaValue(record,kind){const values=__pkgMetaValues(__pkgMetaField(record,kind));return values.length?values[0]:null}
+  function __pkgIsObject(value){return !!value&&typeof value==='object'&&!Array.isArray(value)}
+  async function __pkgReadMilplayMeta(files){
+    const candidates=__pkgSorted((files||[]).filter(f=>f&&__pkgIsMeta(f.name)));
+    for(const file of candidates){
+      let parsed;try{parsed=JSON.parse(await file.text())}catch{continue}
+      if(!__pkgIsObject(parsed)||!Object.prototype.hasOwnProperty.call(parsed,__MILPLAY_META_KEY))continue;
+      const version=parsed[__MILPLAY_META_KEY];if(!(typeof version==='string'&&version.trim()||typeof version==='number'&&Number.isFinite(version)))continue;
+      const entries=Object.keys(parsed).filter(key=>key!==__MILPLAY_META_KEY).map(key=>({id:key,data:parsed[key]})).filter(entry=>__pkgIsObject(entry.data)&&__pkgMetaValue(entry.data,'chart')!=null).map(entry=>({id:entry.id,data:entry.data,chartPath:__pkgMetaValue(entry.data,'chart')}));
+      return{recognized:true,valid:entries.length>0,file,entries};
+    }
+    return{recognized:false,valid:false};
+  }
+  let __pkgActiveMetaPackage=null;
+  function __pkgMetaOptionLabel(record){const m=record.displayMeta,diff=[m.difficultyName,m.difficultyLevel].filter(x=>x!=null&&String(x).trim()).join(' ');return[diff,m.title,record.chartFile.name].filter(Boolean).join(' — ')}
+  function __pkgSetMetaChooser(records){
+    const wrap=id('packageChartChooser'),select=id('packageChartSelect');if(!wrap||!select)return;
+    while(select.firstChild)select.removeChild(select.firstChild);(records||[]).forEach((record,index)=>{const option=document.createElement('option');option.value=String(index);option.textContent=__pkgMetaOptionLabel(record);select.appendChild(option)});
+    wrap.hidden=!(records&&records.length>1);select.disabled=!records||records.length<2;
+  }
+  async function __pkgParseMilplayRecords(files,metaPackage,report){
+    __pkgStoryboardPath='';__milIndexPackageAssets(files,'');const records=[];
+    for(let index=0;index<metaPackage.entries.length;index++){
+      const entry=metaPackage.entries[index],path=entry.chartPath,chartFile=__milResolveAssetFile(path,'');
+      if(!chartFile){report.push('警告：meta.json 指定的谱面文件未找到：'+path);continue}
+      try{
+        const parsed=await parseText(await chartFile.text(),chartFile.name),chartMeta=parsed.chart&&parsed.chart.meta||{};
+        const textValue=(kind,fallback)=>{const v=__pkgMetaValue(entry.data,kind);return v==null||v===''?fallback:String(v)};
+        const delayValue=__pkgMetaValue(entry.data,'delay'),delay=delayValue==null?0:Number(delayValue);
+        const displayMeta={title:textValue('title',chartMeta.Title||chartMeta.name||chartFile.name),illustrator:textValue('illustrator',''),composer:textValue('composer',chartMeta.Composer||chartMeta.music_artist||''),charter:textValue('charter',chartMeta.Beatmapper||''),difficultyName:textValue('difficultyName',chartMeta.Difficulty||chartMeta.difficulty_name||''),difficultyLevel:__pkgMetaValue(entry.data,'difficultyLevel')||null};
+        const imageRef=__pkgMetaValue(entry.data,'image')||null,musicRef=__pkgMetaValue(entry.data,'music')||null,storyboardPath=__pkgMetaValue(entry.data,'storyboard')||'';
+        const chartImageRef=chartMeta.IllustrationFile||chartMeta.illustrationFile||chartMeta.background||null,chartMusicRef=chartMeta.AudioFile||chartMeta.audioFile||chartMeta.music||null;
+        records.push({id:entry.id,index,path,chartFile,chart:parsed.chart,parseReport:parsed.report,displayMeta,delay:Number.isFinite(delay)?delay:0,imageRef,musicRef,storyboardPath,chartImageRef,chartMusicRef});
+      }catch(error){report.push('警告：meta.json 指定的谱面无法解析：'+path+'（'+String(error&&error.message||error).split('\n')[0]+'）')}
+    }
+    return records;
+  }
+  async function __pkgApplyMetaRecord(record){
+    const pack=__pkgActiveMetaPackage;if(!pack||!record)return;
+    setPlaying(false);state.currentTime=0;state.externalChartMeta=record.displayMeta;
+    __pkgStoryboardPath=record.storyboardPath||'';
+    __milIndexPackageAssets(pack.files,record.chartFile.name);
+    const delay=Number(record.delay);state.audioDelay=Number.isFinite(delay)?delay:0;
+    const imgFile=record.imageRef?(__milResolveAssetFile(record.imageRef,'')||__pkgPickBackground(pack.files,null)):__pkgPickBackground(pack.files,record.chartImageRef),mediaFile=record.musicRef?(__milResolveAssetFile(record.musicRef,'')||__pkgPickAudio(pack.files,null)):__pkgPickAudio(pack.files,record.chartMusicRef),report=[pack.baseReport,record.parseReport,'Milplay 专有格式：'+record.chartFile.name].filter(Boolean);
+    if(record.storyboardPath)report.push('故事板路径：'+record.storyboardPath);
+    if(record.imageRef&&!__milResolveAssetFile(record.imageRef,''))report.push('警告：图片路径未找到：'+record.imageRef+'；已使用包内图片候选');
+    if(record.musicRef&&!__milResolveAssetFile(record.musicRef,''))report.push('警告：音乐路径未找到：'+record.musicRef+'；已使用包内音频候选');
+    if(imgFile){try{await setBackgroundFile(imgFile);report.push('背景：'+imgFile.name)}catch(error){__milClearBackground();report.push('警告：背景解码失败：'+imgFile.name+'（'+(error&&error.message||error)+'）')}}else __milClearBackground();
+    if(mediaFile){try{await setMediaFile(mediaFile);report.push('音乐：'+mediaFile.name)}catch(error){__milClearMedia();report.push('警告：音频解码失败：'+mediaFile.name+'（'+(error&&error.message||error)+'）')}}else __milClearMedia();
+    const missing=__pkgStoryboardMissing(record.chart);if(missing.length)report.push('警告：缺少 Storyboard 图片：'+missing.join('、'));
+    state.currentTime=0;prepare(record.chart,record.chartFile.name,report.join('\n'));
+    if(typeof __milPersistReferencedAssets==='function')void __milPersistReferencedAssets(record.chart,record.chartFile.name,imgFile,mediaFile);
+  }
+  const __pkgChartSelect=id('packageChartSelect');
+  if(__pkgChartSelect)__pkgChartSelect.addEventListener('change',event=>{
+    const index=Number(event.target.value),records=__pkgActiveMetaPackage&&__pkgActiveMetaPackage.records,record=records&&records[index];if(!record)return;
+    const pending=__pkgLoadQueue.then(()=>__pkgApplyMetaRecord(record));__pkgLoadQueue=pending.catch(error=>{setStatus('切换谱面失败：'+(error&&error.message||error),'err')});
+  });
+
   /* Serialize uploads so asynchronous decodes cannot commit different packages together. */
   let __pkgLoadQueue = Promise.resolve();
   loadFiles = function (fileList) {
@@ -318,11 +403,35 @@
     const expanded = await expandInputFiles(input);
     let files = expanded.files.filter(f => f && f.name && !String(f.name).endsWith('/')),
       report = [...expanded.report];
+    const metaPackage = await __pkgReadMilplayMeta(files);
+    if (metaPackage.recognized && metaPackage.valid) {
+      const metaReport = [...report, 'meta.json：Milplay ' + String(metaPackage.file && metaPackage.file.name || '') + ' 格式'];
+      const records = await __pkgParseMilplayRecords(files, metaPackage, metaReport);
+      if (records.length) {
+        if (typeof __milRegisterUploadedAssetBatch === 'function') __milRegisterUploadedAssetBatch(files);
+        __pkgActiveMetaPackage = {
+          records,
+          files,
+          baseReport: metaReport.join('\n')
+        };
+        __pkgSetMetaChooser(records);
+        const select = id('packageChartSelect');
+        if (select) select.value = '0';
+        await __pkgApplyMetaRecord(records[0]);
+        return;
+      }
+    }
     const found = await __milFindParseableChart(files),
       chartFile = found.file,
       parsed = found.parsed;
     if (!chartFile && (_found$matches = found.matches) != null && _found$matches.length) return;
-    if (chartFile && parsed) makeRuntime(parsed.chart, chartFile.name);
+    if (chartFile && parsed) {
+      __pkgActiveMetaPackage = null;
+      __pkgStoryboardPath = '';
+      state.externalChartMeta = null;
+      __pkgSetMetaChooser(null);
+      makeRuntime(parsed.chart, chartFile.name);
+    }
     const uploadedBatch = typeof __milRegisterUploadedAssetBatch === 'function' ? __milRegisterUploadedAssetBatch(files) : null;
     if (chartFile && parsed) {
       var _ref, _meta$IllustrationFil, _ref2, _meta$AudioFile;

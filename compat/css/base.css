@@ -34,3 +34,7 @@ body[data-mode="play"] canvas{transform:none!important}
 .ratioInput{width:82px}
 .stageWrap.customStageRatio .stageInner{aspect-ratio:var(--mil-stage-ratio,16/9);height:auto}
 .stageWrap.customStageRatio canvas{height:100%;aspect-ratio:auto}
+.packageChartChooser{display:flex;align-items:center;gap:10px;padding:0 12px 12px;color:var(--sub);font-size:13px}
+.packageChartChooser[hidden]{display:none}
+.packageChartChooser select{min-width:0;flex:1}
+@media(max-width:760px){.packageChartChooser{align-items:stretch;flex-direction:column;gap:6px}}
