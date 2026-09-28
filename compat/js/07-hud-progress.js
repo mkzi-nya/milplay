@@ -25,6 +25,7 @@ function createHudProgress({
     }
   }
   function sync() {
+    var _slider$style;
     // updateControls also runs for external seeks, playback changes and chart loads.
     if (drag && (!seeking || !available() || drag.runtime !== state.runtime)) stop();
     const enabled = available(),
@@ -34,7 +35,7 @@ function createHudProgress({
     slider.setAttribute('aria-valuemax', String(duration));
     slider.setAttribute('aria-valuenow', String(Math.max(0, Math.min(duration, state.currentTime || 0))));
     slider.setAttribute('aria-valuetext', `${(state.currentTime || 0).toFixed(3)} / ${duration.toFixed(3)} s`);
-    if (slider.style && slider.style.setProperty) slider.style.setProperty('--hud-progress', `${duration ? Math.max(0, Math.min(100, (state.currentTime || 0) / duration * 100)) : 0}%`);
+    if ((_slider$style = slider.style) != null && _slider$style.setProperty) slider.style.setProperty('--hud-progress', `${duration ? Math.max(0, Math.min(100, (state.currentTime || 0) / duration * 100)) : 0}%`);
     if (!enabled && document.activeElement === slider) slider.blur();
   }
   function valid() {

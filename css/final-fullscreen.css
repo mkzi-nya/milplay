@@ -29,8 +29,10 @@
 .stageWrap.nativePlayFullscreen .playExpandedSeek,
 .stageWrap:fullscreen .playExpandedSeek,
 .stageWrap:-webkit-full-screen .playExpandedSeek{
-  display:none!important;
-}
+   display:none!important;
+ }
+.stageWrap.nativePlayFullscreen .hudPause,.stageWrap:fullscreen .hudPause,.stageWrap:-webkit-full-screen .hudPause{position:fixed!important;z-index:2147483003!important;left:8px!important;top:8px!important}
+.stageWrap.nativePlayFullscreen .corner,.stageWrap:fullscreen .corner,.stageWrap:-webkit-full-screen .corner{display:flex!important;position:fixed!important;z-index:2147483002!important;top:8px!important;right:8px!important}
 @media (orientation:portrait){
   body[data-mode="play"] .stageWrap.nativeLandscapeFallback .stageInner{
     left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;

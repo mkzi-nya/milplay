@@ -184,7 +184,7 @@ const state = {
   lowMemory: __milDefaultLowMemory(),
   showHandTextures: false,
   editRate: 1,
-  editAudioDelay: .11,
+  editAudioDelay: 0,
   chart: null,
   runtime: null,
   fileName: 'chart.json',
@@ -213,7 +213,7 @@ const state = {
   bgBrightness: .6,
   mediaUrl: '',
   mediaName: '',
-  audioDelay: .11,
+  audioDelay: 0,
   audioVolume: 1,
   mediaReady: false,
   mediaSyncing: false,
@@ -654,6 +654,7 @@ function normalizeRwc(raw) {
 function loadImages() {
   const promises = [];
   for (const [k, src] of Object.entries(BUILTIN_SOURCES)) {
+    if (state.lowMemory && (k === 'hold' || k === 'hold_double' || k === 'exhold' || k === 'exhold_double')) continue;
     const img = new Image();
     img.decoding = 'async';
     state.images[k] = img;
@@ -833,7 +834,7 @@ function drawOldBg(w, h) {
 function drawBg(w, h) {
   drawOldBg(w, h);
   const img = state.backgroundImage;
-  if (img && img.complete && img.naturalWidth) {
+  if (img && (img.complete === undefined || img.complete) && (img.naturalWidth || img.width)) {
     drawCover(img, w, h);
     ctx.fillStyle = `rgba(0,0,0,${1 - state.bgBrightness})`;
     ctx.fillRect(0, 0, w, h);
@@ -1353,6 +1354,16 @@ function guessMediaNameFromBytes(u8, base = 'audio-data') {
   if (decodeUtf8Bytes(u8.slice(4, 8)) === 'ftyp') return base + '.m4a';
   return base + '.bin';
 }
+function guessImageNameFromBytes(u8, base = 'image-data') {
+  if (bytesStartsWith(u8, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return base + '.png';
+  if (bytesStartsWith(u8, [0xff, 0xd8, 0xff])) return base + '.jpg';
+  if (bytesStartsWith(u8, [0x47, 0x49, 0x46, 0x38])) return base + '.gif';
+  if (bytesStartsWith(u8, [0x42, 0x4d])) return base + '.bmp';
+  if (bytesStartsWith(u8, [0x52, 0x49, 0x46, 0x46]) && decodeUtf8Bytes(u8.slice(8, 12)) === 'WEBP') return base + '.webp';
+  if (decodeUtf8Bytes(u8.slice(4, 8)) === 'ftyp' && /avif|heic/i.test(decodeUtf8Bytes(u8.slice(8, 32)))) return base + '.avif';
+  if (/^\s*(?:<svg[\s>]|<\?xml[\s\S]*<svg[\s>])/i.test(decodeUtf8Bytes(u8.slice(0, 512)))) return base + '.svg';
+  return null;
+}
 function guessTextNameFromBytes(u8, base = 'chart-data') {
   const head = decodeUtf8Bytes(u8.slice(0, 2048)).trimStart();
   if (head.startsWith('{') || head.startsWith('[')) return base + '.json';
@@ -1439,15 +1450,29 @@ async function extractMilcht(file) {
       break;
     }
   }
-  if (entries['audio-data']) {
-    const ab = milchtEntryBytes(u8, parsed.dataStart, 'audio-data', entries['audio-data']);
+  const audioKey = Object.keys(entries).find(name => /^(?:audio-data|audio|music|song|bgm)$/i.test(String(name)));
+  if (audioKey) {
+    const ab = milchtEntryBytes(u8, parsed.dataStart, audioKey, entries[audioKey]);
     if (ab && ab.length) {
-      const audioName = guessMediaNameFromBytes(ab, 'audio-data');
+      const audioName = guessMediaNameFromBytes(ab, audioKey);
       out.push(new File([ab], audioName, {
         type: mimeForName(audioName)
       }));
       report.push('milcht 音频：' + audioName);
     }
+  }
+  const imageKeys = new Set(['meta', audioKey, ...chartNames].filter(Boolean));
+  for (const name of Object.keys(entries)) {
+    if (imageKeys.has(name)) continue;
+    const bytes = milchtEntryBytes(u8, parsed.dataStart, name, entries[name]);
+    if (!bytes || !bytes.length) continue;
+    const base = safeMilchtEntryName(name).replace(/\.[^.]+$/, '') || 'image-data',
+      imageName = guessImageNameFromBytes(bytes, base);
+    if (!imageName) continue;
+    out.push(new File([bytes], imageName, {
+      type: mimeForName(imageName)
+    }));
+    report.push('milcht 图片：' + imageName);
   }
   if (!chartAdded) throw new Error('milcht 内没有可解析的 chart-data；raw-chart-data 可能是游戏内部二进制缓存，当前播放器需要 chart-data/Milize JS。');
   return {
@@ -1626,10 +1651,11 @@ function tick(now) {
   /* Play mode only needs a canvas repaint while time advances or input changes; all
      seek/mode/resize interactions call render() directly. Skipping paused frames keeps a
      phone's main thread (and battery) free while the scene is static. */
+  const renderInterval = 15.5;
   if (!play) {
     render();
     __playLastRender = now;
-  } else if (state.playing && now - __playLastRender >= 15.5) {
+  } else if (state.playing && now - __playLastRender >= renderInterval) {
     render();
     __playLastRender = now;
   }
@@ -1752,6 +1778,26 @@ els.stage.addEventListener('pointerdown', handleStagePointerDown);
 els.stage.addEventListener('pointermove', handleStagePointerMove);
 els.stage.addEventListener('pointerup', endPointer);
 els.stage.addEventListener('pointercancel', endPointer);
+/* Safari 12 may still start native gestures before touch-action is honored. */
+for (const type of ['touchstart', 'touchmove', 'touchend', 'gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(type, e => {
+  var _e$target;
+  if (state.appMode !== 'play') return;
+  const wrap = els.stageWrap;
+  if (!wrap || !wrap.contains(e.target)) return; /* Preserve native click synthesis for the stage controls on iOS 12. */
+  if ((_e$target = e.target) != null && _e$target.closest != null && _e$target.closest('button, input, select, textarea, a, label')) return;
+  e.preventDefault();
+}, {
+  capture: true,
+  passive: false
+});
+document.addEventListener('contextmenu', e => {
+  var _els$stageWrap3;
+  if (state.appMode === 'play' && (_els$stageWrap3 = els.stageWrap) != null && _els$stageWrap3.contains(e.target)) e.preventDefault();
+}, true);
+document.addEventListener('selectstart', e => {
+  var _els$stageWrap4;
+  if (state.appMode === 'play' && (_els$stageWrap4 = els.stageWrap) != null && _els$stageWrap4.contains(e.target)) e.preventDefault();
+}, true);
 window.addEventListener('resize', () => {
   markStageResize();
   resizeCanvas();
@@ -2443,7 +2489,7 @@ function normalizeMilthm(raw) {
 ;
 function milizeJsToJson(text, environment = null) {
   return new Promise((resolve, reject) => {
-    var _els$stageWrap3;
+    var _els$stageWrap5;
     const token = 'js2json_' + Math.random().toString(36).slice(2),
       iframe = document.createElement('iframe');
     iframe.sandbox = 'allow-scripts';
@@ -2460,7 +2506,7 @@ function milizeJsToJson(text, environment = null) {
     } catch {}
     // Stage dimensions are CSS pixels, independent of the render-quality/DPR budget.
     const stageRect = els.stage.getBoundingClientRect(),
-      rotated = ((_els$stageWrap3 = els.stageWrap) == null ? void 0 : _els$stageWrap3.classList.contains('nativeLandscapeFallback')) && matchMedia('(orientation:portrait)').matches;
+      rotated = ((_els$stageWrap5 = els.stageWrap) == null ? void 0 : _els$stageWrap5.classList.contains('nativeLandscapeFallback')) && matchMedia('(orientation:portrait)').matches;
     const stageW = Math.max(1, Number(rotated ? els.stage.clientWidth : stageRect.width) || 1920),
       stageH = Math.max(1, Number(rotated ? els.stage.clientHeight : stageRect.height) || 1080);
     const envValues = {
@@ -3386,14 +3432,14 @@ function __milAssetUrl(ref) {
   return u;
 }
 function __milClearBackground() {
-  var _els$stageWrap4;
+  var _els$stageWrap6;
   if (state.bgUrl) try {
     URL.revokeObjectURL(state.bgUrl);
   } catch {}
   state.bgUrl = '';
   state.bgName = '';
   state.backgroundImage = null;
-  (_els$stageWrap4 = els.stageWrap) == null || _els$stageWrap4.style.removeProperty('--mil-stage-art');
+  (_els$stageWrap6 = els.stageWrap) == null || _els$stageWrap6.style.removeProperty('--mil-stage-art');
   updateControls();
   render();
 }

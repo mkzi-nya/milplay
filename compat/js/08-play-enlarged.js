@@ -52,6 +52,7 @@
     if (on && state.appMode !== 'play') setAppMode('play');
     resync();
   }
+  window.__milSetExpanded = setExpanded;
 
   // Replace the historical native-fullscreen/orientation-lock path.
   requestLandscapeFullscreen = async function () {
@@ -71,7 +72,6 @@
   }, {
     passive: true
   });
-
   // If a browser restored a stale native fullscreen state from an older build, leave it cleanly.
   if (document.fullscreenElement || document.webkitFullscreenElement) {
     try {

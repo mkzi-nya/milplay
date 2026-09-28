@@ -334,9 +334,9 @@
     return gpStageRect;
   }
   function gpCanvasPoint(ev, refresh = false) {
-    var _els$stageWrap, _els$stageWrap$classL, _matchMedia;
+    var _els$stageWrap, _matchMedia;
     const r = refresh || !gpStageRect || performance.now() - gpStageRectStamp > 1000 ? gpRefreshStageRect() : gpStageRect,
-      rotated = ((_els$stageWrap = els.stageWrap) == null ? void 0 : (_els$stageWrap$classL = _els$stageWrap.classList) == null ? void 0 : _els$stageWrap$classL.contains('nativeLandscapeFallback')) && (matchMedia == null ? void 0 : (_matchMedia = matchMedia('(orientation:portrait)')) == null ? void 0 : _matchMedia.matches),
+      rotated = ((_els$stageWrap = els.stageWrap) == null || (_els$stageWrap = _els$stageWrap.classList) == null ? void 0 : _els$stageWrap.contains('nativeLandscapeFallback')) && (matchMedia == null || (_matchMedia = matchMedia('(orientation:portrait)')) == null ? void 0 : _matchMedia.matches),
       sx = clamp((ev.clientX - r.left) / Math.max(1, r.width), 0, 1),
       sy = clamp((ev.clientY - r.top) / Math.max(1, r.height), 0, 1);
     if (rotated) return {
@@ -406,7 +406,7 @@
     /* RainPlayer's desktop/source box remains 486/1920 wide. On coarse/mobile input,
        enforce the requested lane width in SCREEN space: one judgement lane = 1/6
        of the visible gameplay width, independent of line/note scale or rotation. */
-    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null ? void 0 : (_matchMedia2 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia2.matches),
+    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia2 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia2.matches),
       xOk = coarse ? Math.abs(p.x) * (p.__screenXScale || 1) <= w / 12 : -jw / 2 <= p.x && p.x <= jw / 2;
     return xOk && -jh / 2 <= p.y - jdy && p.y - jdy <= jh / 2;
   }
@@ -532,7 +532,7 @@
       dy = p.y - center.y,
       jw = 485.99991 / 1920 * w,
       jh = 2202.27645 / 1080 * h;
-    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null ? void 0 : (_matchMedia3 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia3.matches);
+    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia3 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia3.matches);
     const xOk = coarse ? Math.abs(dx) * (p.__screenXScale || 1) <= w / 12 * GP_LIGHTNING_HIT_RATIO : Math.abs(dx) <= jw / 2 * GP_LIGHTNING_HIT_RATIO;
     return xOk && Math.abs(dy) <= jh / 2;
   }
@@ -913,6 +913,43 @@
   }
   function gpDrawManualEffects(rt, sec, w, h, lineStates = null) {
     if (!gpIsPlay() || gp.autoplay || !state.hitEffects) return;
+    if (state.lowMemory) {
+      for (const key of gp.effectKeys) {
+        const n = gp.noteByKey.get(key),
+          e = n && gpEntry(n);
+        if (!n || !e.headJudged || sec - e.judgeTime > .52) {
+          gp.effectKeys.delete(key);
+          continue;
+        }
+        const age = sec - e.judgeTime;
+        if (age < 0 || age > .5) continue;
+        const st = (lineStates == null ? void 0 : lineStates[n.lineIdx]) || transformLine(rt, n.lineIdx, sec, w, h),
+          p = __pluAnchorEffectNote == null ? void 0 : __pluAnchorEffectNote(n, e.judgeTime, w, h, rt);
+        if (!p || __milRectOutsideView(p.x - w * .08, p.y - w * .08, p.x + w * .08, p.y + w * .08, w, h)) continue;
+        const radius = Math.max(3, w * .0223 * 4.632 * (1 - (1 - age / .5) ** 3) * p.scale);
+        ctx.save();
+        ctx.globalAlpha = 1 - age / .5;
+        ctx.strokeStyle = e.judgeIsGood ? '#85ffbd' : '#9edfff';
+        ctx.lineWidth = Math.max(1, w * .0018);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        if (age < .18) {
+          const particleRadius = Math.max(1, w * .0025),
+            spread = radius * (age / .18);
+          ctx.fillStyle = e.judgeIsGood ? '#85ffbd' : '#a9e8ff';
+          for (let i = 0; i < 2; i++) {
+            const a = i * Math.PI + age * 18;
+            ctx.globalAlpha = 1 - age / .18;
+            ctx.beginPath();
+            ctx.arc(p.x + Math.cos(a) * spread, p.y + Math.sin(a) * spread, particleRadius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+      return;
+    }
     for (const key of gp.effectKeys) {
       const n = gp.noteByKey.get(key);
       if (!n) {

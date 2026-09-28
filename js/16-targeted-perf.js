@@ -45,6 +45,10 @@ __milTintSlice=function(img,sx,sy,sw,sh,dx,dy,dw,dh,color){
   const iw=Number(img?.naturalWidth||img?.width)||0,ih=Number(img?.naturalHeight||img?.height)||0;
   if(!iw||!ih||![sx,sy,sw,sh,dx,dy,dw,dh].every(Number.isFinite)||!sw||!sh||Math.abs(dw)<1e-6||Math.abs(dh)<1e-6)return;
   if(color[0]===255&&color[1]===255&&color[2]===255){ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);return}
+  /* iOS 12 struggles with the temporary RGBA canvas used for per-note tinting.
+     Low-memory play keeps the authored alpha and skips recoloring instead of
+     paying for two extra full texture passes per note. */
+  if(state.lowMemory){ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);return}
   const zoom=Math.abs(Number(state.viewScale))||1,
         rw=Math.max(1,Math.min(Math.floor(Math.min(iw,Math.abs(sw))),Math.ceil(Math.abs(dw)*zoom))),
         rh=Math.max(1,Math.min(Math.floor(Math.min(ih,Math.abs(sh))),Math.ceil(Math.abs(dh)*zoom))),

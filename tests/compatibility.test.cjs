@@ -1,5 +1,5 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
+const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {createHarness}=require('./harness.js');
 const setup=()=>createHarness(path.resolve(__dirname,'..'));
 function lightning(){
@@ -118,4 +118,10 @@ test('an explicitly dismissed result remains dismissed after stage runtime rebin
   const h=setup();
   h.run(`window.resultScore=1000000;state.appMode='play';state.runtime={meta:{Title:'Test'},duration:1};state.duration=1;state.currentTime=1;state.playing=false;window.__gpScoreBreakdown=()=>({finalScore:resultScore,noteAmount:1,counts:{e:1},totalAccScore:1000000});__gpShowResult();__gpHideResult(true);const old=state.runtime;state.runtime={meta:{Title:'Test'},duration:1};__gpRebindResultRuntime(old,state.runtime);resultScore=900000;__gpShowResult();`);
   assert.equal(h.get('gameResultScore').textContent,'1000000');
+});
+test('bundled image references use PNG assets only',()=>{
+  const h=setup();
+  assert.equal(h.run("Object.values(BUILTIN_SOURCES).every(src=>src.endsWith('.png'))"),true);
+  assert.equal(h.run("Object.values(__RAIN_HOLD_SOURCE).every(src=>src.endsWith('.png'))"),true);
+  assert.match(fs.readFileSync(path.resolve(__dirname,'../js/15-algebra-storyboard.js'),'utf8'),/assets\/alg_tap\.png/);
 });

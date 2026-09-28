@@ -24,7 +24,8 @@ function createHarness(root,opts={}){
       if(opts.globals)Object.assign(sandbox,opts.globals);
       vm.runInNewContext(e.srcdoc.match(/<script>([\s\S]*)<\/script>/)[1],sandbox,{timeout:opts.childTimeout||60000});
     }return e}
-    append(...a){a.forEach(e=>this.appendChild(e))} remove(){} matches(){return false}
+     append(...a){a.forEach(e=>this.appendChild(e))} remove(){} matches(){return false}
+    contains(e){for(let n=e;n;n=n.parentElement)if(n===this)return true;return false}
     querySelector(sel){if(sel.startsWith('#'))return get(sel.slice(1));return null} querySelectorAll(){return []}
     set innerHTML(s){for(const m of s.matchAll(/\bid="([^"]+)"/g)){ids.add(m[1]);this.appendChild(get(m[1]))}}
     pause(){this.paused=true} play(){this.paused=false;return Promise.resolve()}
@@ -33,17 +34,17 @@ function createHarness(root,opts={}){
   }
   function get(id){if(!ids.has(id))return null;if(!nodes.has(id)){const e=new Element(id==='stage'?'canvas':'div');e.id=id;nodes.set(id,e)}return nodes.get(id)}
   class ImageFake{constructor(){images.push(this);this.complete=false;this.naturalWidth=0;this.naturalHeight=0}set src(s){this._src=s}get src(){return this._src}ready(w=64,h=64){this.complete=true;this.naturalWidth=w;this.naturalHeight=h;this.onload?.()}}
-  const document={body:new Element(),head:new Element(),documentElement:new Element(),getElementById:get,createElement:t=>new Element(t),addEventListener:noop,querySelector:()=>null,querySelectorAll:()=>[],activeElement:{tagName:'BODY'},scripts:[]};
+  const document={body:new Element(),head:new Element(),documentElement:new Element(),listeners:new Map(),getElementById:get,createElement:t=>new Element(t),addEventListener(t,f){if(!this.listeners.has(t))this.listeners.set(t,[]);this.listeners.get(t).push(f)},querySelector:()=>null,querySelectorAll:()=>[],activeElement:{tagName:'BODY'},scripts:[]};
   const context=vm.createContext({console,document,Image:ImageFake,HTMLCanvasElement:Element,Blob,File,TextDecoder,TextEncoder,Response,DecompressionStream,performance,URL:{createObjectURL:value=>(blobs.push(value),`blob:test-${++serial}`),revokeObjectURL:u=>revoked.push(u)},navigator:{language:'en-US',maxTouchPoints:1},matchMedia:()=>({matches:false,addEventListener:noop}),screen:{orientation:{}},devicePixelRatio:1,innerWidth:1280,innerHeight:720,requestAnimationFrame:f=>(raf.push(f),raf.length),cancelAnimationFrame:noop,setTimeout,clearTimeout,queueMicrotask,ResizeObserver:class{observe(){}},localStorage:{getItem:k=>storage.has(k)?storage.get(k):null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)},addEventListener:(t,f)=>{if(t==='message')messages.add(f);if(!windowEvents.has(t))windowEvents.set(t,new Set());windowEvents.get(t).add(f)},removeEventListener:(t,f)=>{if(t==='message')messages.delete(f);windowEvents.get(t)?.delete(f)}});
   context.window=context;context.globalThis=context;
   const run=s=>vm.runInContext(s,context,{timeout:opts.timeout||60000});
-  for(const m of html.matchAll(/<script src="([^"]+)"/g))vm.runInContext(fs.readFileSync(path.join(root,m[1]),'utf8'),context,{filename:m[1],timeout:opts.timeout||60000});
+  for(const m of html.matchAll(/<script src="([^"]+)"/g)){const file=path.join(root,m[1]);if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),context,{filename:m[1],timeout:opts.timeout||60000})}
   const emitWindowEvent=(type,event={})=>{
     const e={type,target:document.activeElement,preventDefault(){this.prevented=true},stopPropagation(){this.stopped=true},stopImmediatePropagation(){this.stopped=true},...event};
     for(const fn of windowEvents.get(type)||[]){fn(e);if(e.stopped)break}
     return e;
   };
-  return {html,context,run,images,blobs,revoked,messages,get,emitWindowEvent};
+  return {html,context,run,images,blobs,revoked,messages,get,emitWindowEvent,source:file=>fs.readFileSync(path.join(root,file),'utf8')};
 }
 
 module.exports={createHarness};

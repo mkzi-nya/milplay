@@ -379,6 +379,10 @@ if(gpParticlesRaw){
 }
 function gpDrawManualEffects(rt,sec,w,h,lineStates=null){
   if(!gpIsPlay()||gp.autoplay||!state.hitEffects)return;
+  if(state.lowMemory){
+    for(const key of gp.effectKeys){const n=gp.noteByKey.get(key),e=n&&gpEntry(n);if(!n||!e.headJudged||sec-e.judgeTime>.52){gp.effectKeys.delete(key);continue}const age=sec-e.judgeTime;if(age<0||age>.5)continue;const st=lineStates?.[n.lineIdx]||transformLine(rt,n.lineIdx,sec,w,h),p=__pluAnchorEffectNote?.(n,e.judgeTime,w,h,rt);if(!p||__milRectOutsideView(p.x-w*.08,p.y-w*.08,p.x+w*.08,p.y+w*.08,w,h))continue;const radius=Math.max(3,w*.0223*4.632*(1-(1-age/.5)**3)*p.scale);ctx.save();ctx.globalAlpha=1-age/.5;ctx.strokeStyle=e.judgeIsGood?'#85ffbd':'#9edfff';ctx.lineWidth=Math.max(1,w*.0018);ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);ctx.stroke();ctx.restore();if(age<.18){const particleRadius=Math.max(1,w*.0025),spread=radius*(age/.18);ctx.fillStyle=e.judgeIsGood?'#85ffbd':'#a9e8ff';for(let i=0;i<2;i++){const a=(i* Math.PI)+age*18;ctx.globalAlpha=1-age/.18;ctx.beginPath();ctx.arc(p.x+Math.cos(a)*spread,p.y+Math.sin(a)*spread,particleRadius,0,Math.PI*2);ctx.fill()}}}
+    return;
+  }
   for(const key of gp.effectKeys){const n=gp.noteByKey.get(key);if(!n){gp.effectKeys.delete(key);continue}const e=gpEntry(n);if(!e.headJudged||!e.judgeHited||sec<e.judgeTime)continue;const age=sec-e.judgeTime,endFx=n.isHold?Math.min(n.endSec,e.judgeIsMiss?e.judgeMissTime:n.endSec)+.5:e.judgeTime+.5;if(sec>endFx){gp.effectKeys.delete(key);continue}
     const st=lineStates?.[n.lineIdx]||transformLine(rt,n.lineIdx,sec,w,h);
     if(!e.fxProxy||e.fxProxy.startSec!==e.judgeTime){e.fxProxy=Object.create(n);e.fxProxy.startSec=e.judgeTime;e.fxProxy.__pluEffectSource=n}

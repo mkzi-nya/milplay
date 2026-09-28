@@ -8,7 +8,7 @@ function createHudPause({
   button.className = 'hudPause';
   button.type = 'button';
   inner.appendChild(button);
-  // 与画布 score 的中心共用宽度比例；读取布局宽度可兼容竖屏旋转舞台。
+  // Keep the pause control centered over the score in the shared gameplay HUD.
   const position = () => {
     const viewport = Number(window.innerWidth) || inner.clientWidth;
     const size = Math.min(42, Math.max(28, viewport * .033));

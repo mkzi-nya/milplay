@@ -1,10 +1,12 @@
 (() => {
   const noteScale = document.getElementById('playNoteScaleInput');
   const flowSpeed = document.getElementById('playFlowSpeedInput');
+  // Keep the existing render scale: its 1.66 default is shown as 7.0 in the UI.
   const displayToRenderSpeed = value => value * 1.66 / 7;
   const renderToDisplaySpeed = value => value * 7 / 1.66;
   const enteredSpeed = () => {
-    const raw = flowSpeed && String(flowSpeed.value).trim();
+    var _flowSpeed$value;
+    const raw = flowSpeed == null || (_flowSpeed$value = flowSpeed.value) == null ? void 0 : _flowSpeed$value.trim();
     if (!raw) return null;
     const value = Number(raw);
     return Number.isFinite(value) ? Math.max(.1, value) : null;

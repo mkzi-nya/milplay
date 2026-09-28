@@ -40,7 +40,7 @@
     };
   }
   function extend(st, judge) {
-    if (!Object.hasOwn(map, judge)) throw new RangeError('Invalid judgement');
+    if (!Object.prototype.hasOwnProperty.call(map, judge)) throw new RangeError('Invalid judgement');
     if (st.len >= st.noteAmount) throw new RangeError('Judgements exceed chart total');
     const bMax = st.bMax,
       n = ++st.len;

@@ -39,7 +39,7 @@ if(state.runtime)__algInstallSbEvaluator(state.runtime);
  * builtin.line instead of fabricating a four-pixel-thick substitute. */
 const __algStoryImageBefore=storyImage;
 const __algBuiltinCanvases=new Map();
-const __ALG_SB_BUILTIN_NOTE_SRC={"tap":"assets/alg_tap.webp","tap_double":"assets/alg_tap_double.webp","extap":"assets/alg_extap.webp","extap_double":"assets/alg_extap_double.webp"};
+const __ALG_SB_BUILTIN_NOTE_SRC={"tap":"assets/alg_tap.png","tap_double":"assets/alg_tap_double.png","extap":"assets/alg_extap.png","extap_double":"assets/alg_extap_double.png"};
 const __algSbBuiltinImgs=new Map();
 let __algStoryboardRenderQueued=false;
 function __algRequestRenderOnce(){

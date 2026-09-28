@@ -23,6 +23,64 @@ test('pause menu offers a chart-visible countdown',()=>{
   assert.equal(h.run('state.currentTime'),0);
   assert.equal(h.run('state.playing'),true);
 });
+test('pause menu stays visible and topmost when gameplay pauses',()=>{
+  const h=createHarness(root),inner=h.get('stageInner'),wrap=h.get('stageWrap');
+  const button=child(inner,'hudPause'),menu=child(inner,'pauseMenu');
+  h.run('state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[]}],animations:[]});state.duration=state.runtime.duration;setPlaying(true);setPlaying(false)');
+  assert.ok(button);assert.equal(menu.hidden,false);assert.equal(inner.classList.contains('isPaused'),true);assert.equal(wrap.classList.contains('isPaused'),true);
+  const css=readFileSync(join(root,'css/play-enlarged.css'),'utf8');assert.match(css,/\.hudPause\{[^}]*z-index:2147483003/);
+});
+test('play-stage gesture prevention preserves interactive controls',()=>{
+  const h=createHarness(root);let prevented=0;
+  const listener=h.context.document.listeners.get('touchmove').find(fn=>String(fn).includes('e.preventDefault()'));
+  const event=(target,count=1)=>{target.parentElement=h.get('stageWrap');return{target,touches:{length:count},changedTouches:{length:1},preventDefault(){prevented++}}};
+  h.run("state.appMode='play'");
+  listener(event({closest:()=>null}));assert.equal(prevented,1);
+  listener(event({closest:()=>({parentElement:h.get('stageWrap')}),parentElement:h.get('stageWrap')}));assert.equal(prevented,1);
+  listener(event({closest:()=>({}),contains:()=>true},2));assert.equal(prevented,1);
+  h.run("state.appMode='edit'");listener(event({closest:()=>null}));assert.equal(prevented,1);
+  assert.equal((h.context.document.listeners.get('pointerdown')||[]).some(fn=>String(fn).includes('e.isPrimary===false')),false);
+});
+
+test('play-stage touch prevention leaves the enlarge button clickable',()=>{
+  const h=createHarness(root);let prevented=0;
+  assert.match(h.source('js/01-base.js'),/e\.target\?\.closest\?\.\('button, input, select, textarea, a, label'\)\)return/);
+  assert.equal(prevented,0);
+});
+
+test('sampled canvas artwork renders as the gameplay background',()=>{
+  const h=createHarness(root);
+  assert.match(h.source('js/01-base.js'),/img\.complete===undefined\|\|img\.complete\)\&\&\(img\.naturalWidth\|\|img\.width\)/);
+});
+
+test('low-memory playback keeps the standard 60fps render cadence and restored pixel budget',()=>{
+  const h=createHarness(root);
+  assert.equal(h.run('RENDER_QUALITY.lowMemoryStagePixels'),960*540);
+  assert.match(h.source('js/01-base.js'),/const renderInterval=15\.5/);
+  assert.doesNotMatch(h.source('js/01-base.js'),/state\.lowMemory\?50:15\.5/);
+});
+
+test('failed native fullscreen request falls back to the enlarged stage and can exit',async()=>{
+  const h=createHarness(root);
+  await h.run('requestLandscapeFullscreen()');
+  assert.equal(h.get('stageWrap').classList.contains('playExpanded'),true);
+  await h.run('requestLandscapeFullscreen()');
+  assert.equal(h.get('stageWrap').classList.contains('playExpanded'),false);
+});
+
+test('player delay defaults to zero and migrates the historical 110ms setting',()=>{
+  assert.equal(createHarness(root).run('state.audioDelay'),0);
+  const storage=new Map([['milplay-player-settings-v1',JSON.stringify({audioDelay:.11,editAudioDelay:.11})]]);
+  const h=createHarness(root,{storage});
+  assert.equal(h.run('state.audioDelay'),0);assert.equal(h.run('state.editAudioDelay'),0);
+});
+
+test('user delay remains after refresh',()=>{
+  const storage=new Map(),h=createHarness(root,{storage});
+  h.run('setAudioDelay(.237)');
+  assert.equal(h.run('state.audioDelay'),.237);
+  const fresh=createHarness(root,{storage});assert.equal(fresh.run('state.audioDelay'),.237);
+});
 
 test('pause exit only leaves fullscreen; progress drag reveals the chart',()=>{
   const h=createHarness(root),inner=h.get('stageInner'),wrap=h.get('stageWrap');

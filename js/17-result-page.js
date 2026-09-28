@@ -9,7 +9,7 @@ const song=overlay.querySelector('.gameResultSong'),restart=overlay.querySelecto
 if(restart){restart.textContent='↻';restart.title='重开';resultHeader.appendChild(restart)}
 if(song)resultHeader.appendChild(song);
 const profile=document.createElement('div');profile.className='gameResultProfile';
-profile.innerHTML='<div class="gameResultIdentity"><div>user</div><div class="gameResultReality"><span>REALITY</span> 114.514</div></div><img class="gameResultAvatar" src="assets/result-avatar.webp" alt="用户头像">';
+ profile.innerHTML='<div class="gameResultIdentity"><div>user</div><div class="gameResultReality"><span>REALITY</span> 114.514</div></div><img class="gameResultAvatar" src="assets/result-avatar.png" alt="用户头像">';
 resultHeader.appendChild(profile);overlay.appendChild(resultHeader);
 const gradeImage=document.createElement('img');gradeImage.id='gameResultGrade';gradeImage.className='gameResultGrade';gradeImage.alt='评级';
 overlay.querySelector('.gameResultScoreRow')?.appendChild(gradeImage);
@@ -21,8 +21,8 @@ function showResult(){if(state.appMode!=='play'||!state.runtime||dismissedForRun
       acc=r.noteAmount?r.totalAccScore/(r.noteAmount*10000):0;titleEl.textContent=meta.title;diffEl.textContent=meta.difficulty||'—';scoreEl.textContent=String(Math.max(0,r.finalScore|0)).padStart(7,'0');accEl.textContent=acc.toFixed(2)+'%';perfectEl.textContent=`${(c.e||0)+(c.p||0)}(${c.p||0})`;goodEl.textContent=`${(c.g||0)+(c.n||0)}(${c.n||0})`;badEl.textContent=`${c.b||0}/${c.m||0}`;const bg=state.bgUrl||'';if(bg){cover.src=bg;cover.classList.remove('noImage');if(backdrop)backdrop.style.backgroundImage=`url(${JSON.stringify(bg)})`}else{cover.removeAttribute('src');cover.classList.add('noImage');if(backdrop)backdrop.style.backgroundImage='none'}overlay.classList.add('show');overlay.setAttribute('aria-hidden','false');shownForRuntime=state.runtime}
 const lightningEl=document.createElement('div');lightningEl.className='gameResultLightning';
 overlay.querySelector('.gameResultRight')?.appendChild(lightningEl);
-const showOrdinaryResult=showResult;
-showResult=function(){showOrdinaryResult();if(!overlay.classList.contains('show'))return;const stats=window.__gpLightningStats?.();lightningEl.textContent=stats?.total?`闪电  通过 ${stats.passed} / 触雷 ${stats.missed}`:'';const result=window.__gpScoreBreakdown?.(true);if(result){const g=window.MilResultGrade?.(result.finalScore,result.counts,result.noteAmount);if(g){gradeImage.src=`assets/grades/${g.icon}.webp`;gradeImage.alt=`评级 ${g.name}${g.ap?' · ALL PERFECT':g.fc?' · FULL COMBO':''}`;overlay.dataset.achievement=g.ap?'ap':g.fc?'fc':'clear'}const c=result.counts||{};perfectEl.textContent=`${(c.e||0)+(c.p||0)}(${c.e||0})`;goodEl.textContent=`${(c.g||0)+(c.n||0)}(${c.g||0})`}};
+ const showOrdinaryResult=showResult;
+ showResult=function(){showOrdinaryResult();if(!overlay.classList.contains('show'))return;const stats=window.__gpLightningStats?.();lightningEl.textContent=stats?.total?`闪电  通过 ${stats.passed} / 触雷 ${stats.missed}`:'';const result=window.__gpScoreBreakdown?.(true);if(result){const g=window.MilResultGrade?.(result.finalScore,result.counts,result.noteAmount);if(g){gradeImage.src=`assets/grades/${g.icon}.png`;gradeImage.alt=`评级 ${g.name}${g.ap?' · ALL PERFECT':g.fc?' · FULL COMBO':''}`;overlay.dataset.achievement=g.ap?'ap':g.fc?'fc':'clear'}const c=result.counts||{};perfectEl.textContent=`${(c.e||0)+(c.p||0)}(${c.e||0})`;goodEl.textContent=`${(c.g||0)+(c.n||0)}(${c.g||0})`}};
 // Resizing recompiles the same chart, but must not undo an explicit dismissal.
 window.__gpRebindResultRuntime=function(previous,next){
   if(dismissedForRuntime===previous)dismissedForRuntime=next;

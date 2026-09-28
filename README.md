@@ -68,7 +68,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 | 标准 JSON | `.json`、`.milthm`、`.tjson`、`.txt` | `BPMList`/`NoteList` 结构，按 `FormatVersionCode` 校验与归一化 |
 | 开发 JSON | `.json`、`.txt` | `lines[].notes` / `bpms` / `animations` / `storyboardObjects` |
 | Milize JS | `.js`、`.mjs`、`.cjs` | 在沙箱 iframe 执行并转 JSON；失败后回退静态 TJSON 扫描（不执行脚本） |
-| 容器 | `.milcht` | 读取文件表，提取文本谱面与音频 |
+| 容器 | `.milcht` | 读取文件表，提取文本谱面、音频与可识别的图片 |
 | 图片 | `.png/.jpg/.jpeg/.avif/.webp`（另识别 gif/bmp/svg） | 背景与故事板，取决于浏览器解码 |
 | 媒体 | `.ogg/.opus/.mp3/.wav/.flac/.m4a/.aac/.mp4/.webm/.mov` | 由浏览器媒体解码器播放音轨 |
 | 压缩包 | `.zip`、`.7z` | 解包后继续分流，可嵌套 |
@@ -83,7 +83,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 解析超时为自适应 **4–60 秒**（`4000 + 源码长度×0.025 ms`，上限 60s）。它不是完整游戏 SDK：`stage.width/height` 现在返回实际舞台 CSS 尺寸，独立于 DPR；屏幕尺寸和用户大小／流速也注入环境。窗口变化后重新执行 JS 以更新谱面自己的比例补偿，保留原 `time` 种子；音符身份和时间没有变化时保留已经记录的判定与触点。若谱面根据屏幕尺寸生成了不同音符，则按当前时间重新建立游玩状态。JSON 或从本地自动保存恢复的谱面没有 JS 源码，不重新生成。桥接失败后回退 `staticTjson` 静态扫描。该桥已用 **382 个真实谱面验证 382/382 成功解析**。
 
-**`.milcht`**：解析文件表，取 `chart-data`/`chart`/`beatmap`/`raw-chart-data` 文本条目与 `audio-data`；zstd 条目按需从 jsDelivr 导入 `fzstd@0.1.1`，回退 `zstddec@0.2.0`。不支持游戏内部二进制谱面缓存。
+**`.milcht`**：解析文件表，取 `chart-data`/`chart`/`beatmap`/`raw-chart-data` 文本条目、音频与可识别的图片；zstd 条目按需从 jsDelivr 导入 `fzstd@0.1.1`，回退 `zstddec@0.2.0`。不支持游戏内部二进制谱面缓存。
 
 **压缩**：
 
@@ -100,7 +100,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 - 窗口：Exact <35ms、Perfect <70ms、Great <105ms、Good <140ms、Bad <155ms，否则为 Miss。按偏移绝对值从最小窗口开始判断，正好落在边界会落到更差的一档。
 - `isAlwaysPerfect`（AP）：偏移在 Good 窗口内（`<140ms`）命中即 Exact，否则 Miss。
 - 参与普通判定的只有类型 0（Tap/Hold）与类型 1（Drag）；Hold 头尾各计一次。类型 2（Fracture/Lightning）单独判定，不增加普通音符数或普通判定次数。
-- 闪电有独立的通过／触雷统计；Fake 闪电只渲染，自动游玩按时间通过，跳转和重开会重建状态。闪电的空间判定框以其中心为准，沿判定线横向的宽度是普通音符的一半，纵向范围不变；指针触雷才显示 `lightning2.webp` 特效。键盘输入始终不会触雷；未触雷的闪电到达判定线时立即消失。原 DLL 判定方法为空桩，当前保留 **提前 50 ms** 的兼容碰撞窗口，接触判定线后不再判触雷。不能将该兼容行为视为原版判定完全一致。
+- 闪电有独立的通过／触雷统计；Fake 闪电只渲染，自动游玩按时间通过，跳转和重开会重建状态。闪电的空间判定框以其中心为准，沿判定线横向的宽度是普通音符的一半，纵向范围不变；指针触雷才显示 `lightning2.png` 特效。键盘输入始终不会触雷；未触雷的闪电到达判定线时立即消失。原 DLL 判定方法为空桩，当前保留 **提前 50 ms** 的兼容碰撞窗口，接触判定线后不再判触雷。不能将该兼容行为视为原版判定完全一致。
 - 普通音符的打击环和粒子固定在命中瞬间判定线上的落点；Hold 的持续粒子随判定线移动。切换画布尺寸后按新尺寸重算落点。密集段使用稳定的粒子抽样以限制每帧绘制量。
 - 游玩时被判定的非 Hold 音符立即从画面消失；Hold 保留到自身结束。未判定的音符和编辑模式仍遵守谱面可见性。
 - 手动输入来自指针（支持多指、`pointerrawupdate`）与 `A`–`Z`/`Space`；自动游玩按时间轴顺序判定为 Exact。
@@ -142,7 +142,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 - **路径归一化**：反斜杠、URI 解码、Unicode NFC；先精确路径（有冲突则跳过），再大小写不敏感（仅唯一时），最后仅在 basename 唯一时回退；有歧义时给出诊断而非乱选。
 - **上传批次库**：每个用户上传批次独立登记。解析顺序为“从新到旧”，采用**第一个在该批次内唯一命中的**文件；若最新批次对某个键有歧义，会**跳过该键并继续向更早批次回退**，绝不返回任意重复项。批次内先后顺序与包内解析一致：精确路径 → 精确 basename → 大小写不敏感路径 → 折叠名。
 - **对象 URL 生命周期**：资源与故事板 blob URL 都登记在可枚举的表中；加载新谱面/资源时 `__milRevokePackageAssets` 会同时释放这些 URL 并清空故事板缓存，避免跨包泄漏（`js/15-algebra-storyboard.js` 已协调该路径）。
-- **内置图元**：`builtin.rect` / `builtin.round_rect` / `builtin.line` 程序化生成；`builtin.tap` 等复用玩法贴图。内置贴图由 `js/builtin-sources.js` 映射到 `assets/*.webp`，无需上传。
+- **内置图元**：`builtin.rect` / `builtin.round_rect` / `builtin.line` 程序化生成；`builtin.tap` 等复用玩法贴图。内置贴图统一使用 PNG，以兼容旧版 iOS Safari。
 - **故事板默认透明度为 0**，显式动画决定其显示。`靈.zip` 的第二个 `builtin.line` 没有动画，旧默认值 1 导致中央多出白线；已用本地 MilLune WASM 对照确认其默认 alpha 为 0，并保留第一个对象的动画。原始 ZIP 无需修改。
 
 ## 渲染顺序

@@ -11,6 +11,8 @@
   .stageWrap.nativePlayFullscreen{position:fixed!important;top:0!important;right:0!important;bottom:0!important;left:0!important;width:100vw!important;height:100vh!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;z-index:2147483000!important;overflow:hidden!important}
   .stageWrap.playExpanded .stageInner,.stageWrap.nativePlayFullscreen .stageInner,.stageWrap:-webkit-full-screen .stageInner{position:absolute!important;padding-bottom:0;left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%)!important;max-width:none!important;max-height:none!important}
   .stageWrap.nativePlayFullscreen .fsLeft,.stageWrap.nativePlayFullscreen .corner{display:none!important}
+  .stageWrap.nativePlayFullscreen .hudPause{position:fixed!important;z-index:2147483003!important;left:8px!important;top:8px!important}
+  .stageWrap.nativePlayFullscreen .corner{display:flex!important;position:fixed!important;z-index:2147483002!important;top:8px!important;right:8px!important}
 }
 @supports not (inset: 0) {
   .stageWrap.nativePlayFullscreen{top:0!important;right:0!important;bottom:0!important;left:0!important}

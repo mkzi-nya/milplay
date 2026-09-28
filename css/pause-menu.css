@@ -1,4 +1,4 @@
-.pauseMenu,.pauseCountdown{position:absolute;inset:0;z-index:11}
+.pauseMenu,.pauseCountdown{position:absolute;inset:0;z-index:2147483004;touch-action:none;-webkit-touch-callout:none}
 .pauseMenu[hidden],.pauseCountdown[hidden]{display:none!important}
 .pauseMenuShade{position:absolute;inset:0;background:rgba(0,0,0,.86)}
 .pauseMenu.seeking{pointer-events:none}

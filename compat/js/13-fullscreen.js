@@ -61,19 +61,36 @@
     window.__gpEscPauseGuardUntil = 0;
     clearOldExpanded();
     wrap.classList.remove('nativePlayFullscreen', 'nativeLandscapeFallback');
+    if (!wrap.requestFullscreen && !wrap.webkitRequestFullscreen) {
+      wrap.classList.add('playExpanded');
+      document.documentElement.classList.add('playExpandedRoot');
+      document.body.classList.add('playExpandedRoot');
+      window.__milSetExpanded == null || window.__milSetExpanded(true);
+      requestAnimationFrame(() => {
+        if (typeof markStageResize === 'function') markStageResize();
+        resizeCanvas();
+        render();
+      });
+      return;
+    }
     let nativeOk = false;
     try {
       if (wrap.requestFullscreen) {
         await wrap.requestFullscreen({
           navigationUI: 'hide'
         });
-        nativeOk = true;
+        nativeOk = isNative();
       } else if (wrap.webkitRequestFullscreen) {
         await wrap.webkitRequestFullscreen();
-        nativeOk = true;
+        nativeOk = isNative();
       }
     } catch {}
-    if (!nativeOk && !isNative()) wrap.classList.add('nativePlayFullscreen');
+    if (!nativeOk && !isNative()) {
+      wrap.classList.add('playExpanded');
+      document.documentElement.classList.add('playExpandedRoot');
+      document.body.classList.add('playExpandedRoot');
+      window.__milSetExpanded == null || window.__milSetExpanded(true);
+    }
     if (isNative()) try {
       var _navigator$keyboard2;
       await ((_navigator$keyboard2 = navigator.keyboard) == null || _navigator$keyboard2.lock == null ? void 0 : _navigator$keyboard2.lock(['Escape']));
@@ -90,7 +107,7 @@
   window.__gpEnterGameplayFullscreen = enter;
   window.__gpGameplayFullscreenActive = () => isNative() || isFallback();
   requestLandscapeFullscreen = async function () {
-    if (isNative() || isFallback()) await leave();else await enter();
+    if (isNative() || isFallback() || wrap.classList.contains('playExpanded')) await leave();else await enter();
   };
   function sync() {
     if (!isNative() && !isFallback()) {

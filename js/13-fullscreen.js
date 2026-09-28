@@ -32,16 +32,17 @@ async function leave(){
 }
 async function enter(){
   window.__gpEscPauseGuardUntil=0;clearOldExpanded();wrap.classList.remove('nativePlayFullscreen','nativeLandscapeFallback');
-  let nativeOk=false;
-  try{if(wrap.requestFullscreen){await wrap.requestFullscreen({navigationUI:'hide'});nativeOk=true}else if(wrap.webkitRequestFullscreen){await wrap.webkitRequestFullscreen();nativeOk=true}}catch{}
-  if(!nativeOk&&!isNative())wrap.classList.add('nativePlayFullscreen');
+  if(!wrap.requestFullscreen&&!wrap.webkitRequestFullscreen){wrap.classList.add('playExpanded');document.documentElement.classList.add('playExpandedRoot');document.body.classList.add('playExpandedRoot');window.__milSetExpanded?.(true);requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()});return}
+let nativeOk=false;
+  try{if(wrap.requestFullscreen){await wrap.requestFullscreen({navigationUI:'hide'});nativeOk=isNative()}else if(wrap.webkitRequestFullscreen){await wrap.webkitRequestFullscreen();nativeOk=isNative()}}catch{}
+  if(!nativeOk&&!isNative()){wrap.classList.add('playExpanded');document.documentElement.classList.add('playExpandedRoot');document.body.classList.add('playExpandedRoot');window.__milSetExpanded?.(true)}
   if(isNative())try{await navigator.keyboard?.lock?.(['Escape'])}catch{}
   await unlockOrientation();
   syncLegacySize();
   requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()});
 }
 window.__gpLeaveGameplayFullscreen=leave;window.__gpEnterGameplayFullscreen=enter;window.__gpGameplayFullscreenActive=()=>isNative()||isFallback();
-requestLandscapeFullscreen=async function(){if(isNative()||isFallback())await leave();else await enter()};
+requestLandscapeFullscreen=async function(){if(isNative()||isFallback()||wrap.classList.contains('playExpanded'))await leave();else await enter()};
 function sync(){
   if(!isNative()&&!isFallback()){
     if((Number(window.__gpEscPauseGuardUntil)||0)>performance.now())wrap.classList.add('nativePlayFullscreen');

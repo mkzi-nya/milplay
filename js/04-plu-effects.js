@@ -63,7 +63,7 @@ render=function(){
     for(let i=nhStart;i<nonholds.length&&nonholds[i].startSec<=sec;i++)__pluDrawParticles(rt,nonholds[i],sec,lineStates[nonholds[i].lineIdx],w,h);
     const fxHolds=rt.__pluHoldFxBuckets?.get(Math.floor(Math.max(0,sec)))||[];for(const n of fxHolds)if(n.startSec<=sec&&n.endSec+.5>=sec)__pluDrawParticles(rt,n,sec,lineStates[n.lineIdx],w,h);
     for(const n of rt.__pluLongFxHolds||[])if(n.startSec<=sec&&n.endSec+.5>=sec)__pluDrawParticles(rt,n,sec,lineStates[n.lineIdx],w,h);
-    for(let layer=0;layer<3;layer++)for(const n of __pluActiveNotesAt(rt,layer,sec)){if(n.activeFrom<=sec&&n.activeTo>=sec)drawNote(rt,n,sec,lineStates[n.lineIdx],w,h)}
+     for(let layer=0;layer<3;layer++){const notes=__pluActiveNotesAt(rt,layer,sec);for(const n of notes)if(n.activeFrom<=sec&&n.activeTo>=sec)drawNote(rt,n,sec,lineStates[n.lineIdx],w,h)}
     /* The judgement line is the visual endpoint of the note path.  It must be
        composited over notes so that, at contact, the line visibly cuts through
        the note instead of disappearing behind its opaque centre.  Hit effects

@@ -40,6 +40,7 @@
     if(on&&state.appMode!=='play')setAppMode('play');
     resync();
   }
+  window.__milSetExpanded=setExpanded;
 
   // Replace the historical native-fullscreen/orientation-lock path.
   requestLandscapeFullscreen=async function(){setExpanded(!wrap.classList.contains('playExpanded'))};

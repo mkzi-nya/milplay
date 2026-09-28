@@ -12,7 +12,7 @@ function create(noteAmount){
     finCombo:0,procCombo:0,prevLoss:0,counts:{e:0,p:0,g:0,n:0,b:0,m:0}};
 }
 function extend(st,judge){
-  if(!Object.hasOwn(map,judge))throw new RangeError('Invalid judgement');
+  if(!Object.prototype.hasOwnProperty.call(map,judge))throw new RangeError('Invalid judgement');
   if(st.len>=st.noteAmount)throw new RangeError('Judgements exceed chart total');
   const bMax=st.bMax,n=++st.len;
   st.counts[judge]++;st.acc+=map[judge];

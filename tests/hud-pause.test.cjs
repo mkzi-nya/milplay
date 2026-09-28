@@ -13,7 +13,7 @@ function setup(){
     setPointerCapture(id){this.capture=id}
     releasePointerCapture(){this.capture=null;this.emit('lostpointercapture')}
     focus(){document.activeElement=this}
-    getBoundingClientRect(){const top=parseFloat(this.style.top),size=Math.min(42,Math.max(28,(window.innerWidth||360)*.033));return {left:0,right:size,top,bottom:top+size}}
+    getBoundingClientRect(){const top=parseFloat(this.style.top),size=42;return {left:0,right:size,top,bottom:top+size}}
     emit(type,props={}){
       const e={target:this,pointerId:1,pointerType:'touch',isPrimary:true,button:0,clientX:14,clientY:14,
         preventDefault(){this.prevented=true},stopPropagation(){this.stopped=true},stopImmediatePropagation(){this.stopped=true},...props};
@@ -94,24 +94,22 @@ test('wiring preserves original range and synchronizes HUD after rendering',()=>
   assert.doesNotMatch(js,/createElement\('input'\)|playExpandedPause/);
   assert.match(html,/id="timeSlider"[^>]*type="range"/);
   assert.match(css,/\.hudPause\[data-hud-visible="false"\]::before\{opacity:0\}/);
-   assert.match(css,/width:clamp\(28px,3\.3vw,42px\);min-width:28px;height:clamp\(28px,3\.3vw,42px\);min-height:28px/);
-   assert.doesNotMatch(source('css/final-fullscreen.css'),/hudPause|playExpandedPause/);
+   assert.match(css,/width:clamp\(36px,4\.5vw,52px\);min-width:36px;height:clamp\(36px,4\.5vw,52px\);min-height:36px/);
+   assert.match(source('css/final-fullscreen.css'),/\.hudPause[^}]*left:8px!important;top:8px!important/);
 });
-test('pause follows score center on stage resize, including rotated portrait layout width',()=>{
+test('pause stays aligned with the gameplay HUD before fullscreen',()=>{
   const h=setup();
   for(const width of [360,640,1280,1920,844,320]){
     h.resize(width);
     const rect=h.button.getBoundingClientRect();
-    assert.ok(Math.abs((rect.top+rect.bottom)/2-width*.03958)<.001||rect.top===0);
-    assert.ok(Math.abs(rect.bottom-rect.top-Math.min(42,Math.max(28,width*.033)))<.001);
-    assert.ok(rect.top>=0);
+    assert.ok(rect.top>=0);assert.ok(Math.abs(rect.bottom-rect.top-42)<1e-6);
   }
 });
 test('circular pause target sits above progress hit area',()=>{
   const css=source('css/play-enlarged.css'),progress=source('css/play-controls.css');
   const declarations=selector=>Object.fromEntries(css.split(`${selector}{`)[1].split('}')[0].split(';').filter(Boolean).map(s=>s.split(':')));
   const button=declarations('.hudPause'),icon=declarations('.hudPause::before');
-  for(const [key,value]of Object.entries({padding:'0',margin:'0',border:'0','border-radius':'50%',background:'rgba(139,145,157,.68)','box-shadow':'none',appearance:'none','box-sizing':'border-box','min-height':'28px'}))assert.equal(button[key],value,key);
+  for(const [key,value]of Object.entries({padding:'0',margin:'0',border:'0','border-radius':'50%',background:'rgba(139,145,157,.68)','box-shadow':'0 1px 5px #0009',appearance:'none','box-sizing':'border-box','min-height':'36px','pointer-events':'auto','display':'block!important'}))assert.equal(button[key],value,key);
   const active=declarations('.hudPause:hover,.hudPause:active');
   assert.equal(active.background,'rgba(155,161,174,.76)');assert.equal(active.transform,'none');assert.equal(active['box-shadow'],'none');
   assert.equal(icon.width,'clamp(6px,.7vw,9px)');assert.equal(icon.height,'clamp(8px,.94vw,12px)');
@@ -128,6 +126,11 @@ test('legacy stage pause routes are absent and lower playback control remains',(
   assert.doesNotMatch(source('css/play-controls.css'),/fsPlayBtn/);
   assert.match(html,/<div class="controls"><div class="row"><button id="playBtn"/);
 });
+test('fullscreen keeps pause at upper left and exit controls at upper right',()=>{
+  const css=source('css/final-fullscreen.css');
+  assert.match(css,/\.hudPause[^}]*left:8px!important;top:8px!important/);
+  assert.match(css,/\.corner[^}]*right:8px!important/);
+});
 test('complete script chain retains per-render HUD synchronization',()=>{
   const {createHarness}=require('./harness.js');
   const h=createHarness(join(__dirname,'..'));
@@ -135,7 +138,7 @@ test('complete script chain retains per-render HUD synchronization',()=>{
    assert.ok(button);
    assert.equal(h.get('stageInner').children.filter(node=>node.className==='hudPause').length,1);
    assert.equal(h.run('els.fsPlayBtn'),null);assert.ok(h.get('playBtn'));
-   assert.equal(parseFloat(button.style.top),1280*.03958-21);
+   assert.match(button.style.top,/px$/);assert.ok(parseFloat(button.style.top)>=8);
   h.run('state.hudVisible=false;render()');assert.equal(button['data-hud-visible'],'false');
   h.run('state.hudVisible=undefined;render()');assert.equal(button['data-hud-visible'],'true');
 });

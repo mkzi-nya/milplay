@@ -20,11 +20,12 @@
   let saved=null;
   try{saved=JSON.parse(localStorage.getItem(key)||'null')}catch{}
   if(saved&&typeof saved==='object'&&!Array.isArray(saved)){
+    const legacyAudioDelay=validNumber(saved.audioDelay,-5,5)&&Math.abs(saved.audioDelay-.11)<.001&&(!validNumber(saved.editAudioDelay,-5,5)||Math.abs(saved.editAudioDelay-.11)<.001);
     window.__milHasSavedPlayerSettings=true;
     if(validNumber(saved.rate,.05,8))state.rate=saved.rate;
     if(validNumber(saved.editRate,.05,8))state.editRate=saved.editRate;
-    if(validNumber(saved.audioDelay,-5,5))state.audioDelay=saved.audioDelay;
-    if(validNumber(saved.editAudioDelay,-5,5))state.editAudioDelay=saved.editAudioDelay;
+    if(validNumber(saved.audioDelay,-5,5))state.audioDelay=legacyAudioDelay?0:saved.audioDelay;
+    if(validNumber(saved.editAudioDelay,-5,5))state.editAudioDelay=legacyAudioDelay?0:saved.editAudioDelay;
     if(validNumber(saved.audioVolume,0,1))state.audioVolume=saved.audioVolume;
     if(validNumber(saved.bgBrightness,.05,1))state.bgBrightness=saved.bgBrightness;
     if(validNumber(saved.noteScale,.25,4))state.noteScale=saved.noteScale;
@@ -42,6 +43,7 @@
     }
     if(typeof saved.autoplay==='boolean')window.__gpSetAutoplay(saved.autoplay);
     if(els.audioPlayer){els.audioPlayer.playbackRate=state.rate;els.audioPlayer.volume=state.audioVolume}
+    if(legacyAudioDelay)save();
     updateControls();updateModeUI();render();
   }
   for(const name of ['setRate','setAudioDelay','setAudioVolume','setBgBrightness']){
@@ -58,4 +60,5 @@
     if(node){node.addEventListener('input',save);node.addEventListener('change',save)}
   }
   window.addEventListener('pagehide',save);
+  window.__milSavePlayerSettings=save;
 })();

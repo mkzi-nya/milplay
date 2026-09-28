@@ -180,7 +180,7 @@ makeRuntime=function(chart,fileName='chart.json'){
 };
 
 /* Exact double-bit simultaneous grouping and invariant animation groups. */
-function __pluDoubleKey(v){const b=new ArrayBuffer(8),d=new DataView(b);d.setFloat64(0,Number(v),true);return d.getBigUint64(0,true).toString(16)}
+function __pluDoubleKey(v){const b=new ArrayBuffer(8),d=new DataView(b),hex='0123456789abcdef';d.setFloat64(0,Number(v),true);let key='';for(let i=7;i>=0;i--){const byte=d.getUint8(i);key+=hex[(byte>>4)&15]+hex[byte&15]}return key}
 const __pluPrecomputeLegacy=precompute;
 precompute=function(rt){
   __pluPrecomputeLegacy(rt);if(!state.referenceMode)return;
@@ -228,6 +228,15 @@ function __pluNoteStaticCull(rt,n,sec,st,w,h){
   const margin=Math.max(w,h)*2+halfNote;
   return cx<-margin||cx>w+margin||cy<-margin||cy>h+margin;
 }
+function __pluDrawLowMemoryNote(n,center,tail,visualW,alpha,color,rotation){
+  const lowW=visualW*.52,dx=tail.x-center.x,dy=tail.y-center.y,length=Math.hypot(dx,dy),angle=Math.atan2(dy,dx),red=n.type===NOTE_FRACTURE;
+  ctx.save();ctx.globalAlpha*=alpha*(color[3]/255);ctx.translate(center.x,center.y);ctx.rotate(angle);ctx.fillStyle=red?'#e53935':'#fff';
+  if(n.isHold){const r=lowW/2,body=Math.max(0,length);ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(body,-r);ctx.arc(body,0,r,-Math.PI/2,Math.PI/2);ctx.lineTo(0,r);ctx.arc(0,0,r,Math.PI/2,Math.PI*1.5);ctx.closePath();ctx.fill();ctx.strokeStyle='#9edfff';ctx.lineWidth=Math.max(1,lowW*.07);ctx.stroke()}
+  else if(n.type===NOTE_DRAG){ctx.beginPath();ctx.moveTo(0,-lowW*.58);ctx.bezierCurveTo(lowW*.30,-lowW*.25,lowW*.30,lowW*.34,0,lowW*.5);ctx.bezierCurveTo(-lowW*.30,lowW*.34,-lowW*.30,-lowW*.25,0,-lowW*.58);ctx.closePath();ctx.strokeStyle='#9edfff';ctx.lineWidth=Math.max(1,lowW*.09);ctx.stroke()}
+  else if(red){ctx.beginPath();ctx.moveTo(-lowW*.5,-lowW*.25);ctx.lineTo(-lowW*.15,-lowW*.05);ctx.lineTo(-lowW*.32,lowW*.28);ctx.lineTo(.05,lowW*.08);ctx.lineTo(.28,lowW*.48);ctx.lineTo(.5,-lowW*.32);ctx.lineTo(.12,-lowW*.12);ctx.lineTo(.25,-lowW*.5);ctx.closePath();ctx.fill()}
+  else{ctx.beginPath();ctx.arc(0,0,lowW*.5,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#9edfff';ctx.lineWidth=Math.max(1,lowW*.07);ctx.stroke()}
+  ctx.restore();
+}
 const __pluDrawNoteLegacy=drawNote;
 drawNote=function(rt,n,sec,st,w,h){
   if(!state.referenceMode)return __pluDrawNoteLegacy(rt,n,sec,st,w,h);
@@ -239,10 +248,11 @@ drawNote=function(rt,n,sec,st,w,h){
   {const hidden=isItemHidden('note',n.key);if(hidden&&!state.showHidden)return;if(!n.isHold&&sec>=n.startSec+NOTE_DISAPPEAR_TIME)return;if(n.isHold&&sec>n.endSec+HOLD_DISAPPEAR_TIME)return;
     const rawNoteScale=n.hasSize?rt.noteValue(n,SIZE,sec):NOTE_DEFAULTS[SIZE],noteScale=Math.abs(rawNoteScale),noteRot=(n.hasRot?rt.noteValue(n,ROTATION,sec):0)+(rawNoteScale<0?180:0);let noteAlpha=frame.alpha;if(hidden)noteAlpha*=.45;if(n.isHold&&sec>n.endSec)noteAlpha*=Math.max(0,1-(sec-n.endSec)/HOLD_DISAPPEAR_TIME);if(!n.isHold&&sec>n.startSec)noteAlpha*=Math.max(0,1-(sec-n.startSec)/NOTE_DISAPPEAR_TIME);if(noteAlpha<=.001)return;
     const center=frame.center,tail=n.isHold?frame.tail:center,noteColor=rgbaFromUint(n.hasColor?rt.noteValue(n,COLOR,sec):NOTE_DEFAULTS[COLOR]),visualW=frame.visualW,key=noteTextureKey(n),img=imgFor(key),texRot=frame.rotation,radius=Math.max(2,visualW*.42);
-    if(n.isHold&&state.appMode==='play'&&window.__gpHoldMissed?.(n,sec)){
-      noteColor[1]=Math.round(noteColor[1]*.82);
-      noteColor[2]=Math.round(noteColor[2]*.82);
-    }
+     if(n.isHold&&state.appMode==='play'&&window.__gpHoldMissed?.(n,sec)){
+       noteColor[1]=Math.round(noteColor[1]*.82);
+       noteColor[2]=Math.round(noteColor[2]*.82);
+     }
+    if(state.lowMemory){__pluDrawLowMemoryNote(n,center,tail,visualW,noteAlpha,noteColor,texRot);if(state.appMode!=='play'){state.visibleHit.push({n,x:center.x,y:center.y,r:radius,key:n.key,type:n.type});state.inspectHit.push({kind:'note',label:'Note',id:n.key,hiddenKey:itemKey('note',n.key),n,x:center.x,y:center.y,r:radius})};return}
     if(n.isHold){let dx=tail.x-center.x,dy=tail.y-center.y,geometricLen=Math.min(8192,Math.hypot(dx,dy));if(geometricLen<=1e-9){const probe=applyLineWorld(st,w,h,frame.baseX,frame.baseY+frame.floorHead+1);dx=probe.x-center.x;dy=probe.y-center.y;if(Math.hypot(dx,dy)<=1e-9){dx=Math.cos(texRot*Math.PI/180);dy=Math.sin(texRot*Math.PI/180)}}const holdAng=Math.atan2(dy,dx),capMargin=Math.max(16,visualW*2),minX=Math.min(center.x,tail.x)-capMargin,maxX=Math.max(center.x,tail.x)+capMargin,minY=Math.min(center.y,tail.y)-capMargin,maxY=Math.max(center.y,tail.y)+capMargin;if(__milRectOutsideView(minX,minY,maxX,maxY,w,h))return;const holdImg=imgFor(key)||imgFor('hold'),srcW=holdImg?.naturalWidth||4036,srcH=holdImg?.naturalHeight||1336,scale=visualW/srcH,cut=Math.max(1,Math.min(srcW/2-1,HOLD_CUT_PADDING)),capW=cut*scale,rawBodyW=Math.max(0,geometricLen),/* Never synthesize a minimum Hold body.  RainPlayer uses the true geometric body length; forcing a ~0.28-note-width center on very short Holds is what can collapse into the bright/white blob seen in dense charts. */bodyW=rawBodyW;ctx.save();ctx.globalAlpha*=noteAlpha*(noteColor[3]/255);ctx.translate(center.x,center.y);ctx.rotate(holdAng);const sourceTriple=typeof __rainHoldTripleFor==='function'?__rainHoldTripleFor(key):null,sourceReady=sourceTriple&&sourceTriple.head.complete&&sourceTriple.body.complete&&sourceTriple.tail.complete&&sourceTriple.head.naturalWidth&&sourceTriple.body.naturalWidth&&sourceTriple.tail.naturalWidth;if(sourceReady){const hw=visualW*sourceTriple.head.naturalWidth/sourceTriple.head.naturalHeight,tw=visualW*sourceTriple.tail.naturalWidth/sourceTriple.tail.naturalHeight,drawBodyW=rawBodyW>=.75?rawBodyW:0;__milTintSlice(sourceTriple.head,0,0,sourceTriple.head.naturalWidth,sourceTriple.head.naturalHeight,-hw,-visualW/2,hw,visualW,noteColor);if(drawBodyW>0)__milTintSlice(sourceTriple.body,0,0,sourceTriple.body.naturalWidth,sourceTriple.body.naturalHeight,0,-visualW/2,drawBodyW,visualW,noteColor);__milTintSlice(sourceTriple.tail,0,0,sourceTriple.tail.naturalWidth,sourceTriple.tail.naturalHeight,drawBodyW,-visualW/2,tw,visualW,noteColor)}else if(holdImg&&holdImg.naturalWidth){const drawBodyW=bodyW>=.75?bodyW:0;__milTintSlice(holdImg,0,0,cut,srcH,-capW,-visualW/2,capW,visualW,noteColor);if(drawBodyW>0)__milTintSlice(holdImg,cut,0,Math.max(1,srcW-2*cut),srcH,0,-visualW/2,drawBodyW,visualW,noteColor);__milTintSlice(holdImg,srcW-cut,0,cut,srcH,drawBodyW,-visualW/2,capW,visualW,noteColor)}else{ctx.fillStyle=`rgba(${noteColor[0]},${noteColor[1]},${noteColor[2]},.78)`;ctx.beginPath();ctx.roundRect(0,-visualW*.25,Math.max(1,bodyW),visualW*.5,visualW*.18);ctx.fill();ctx.beginPath();ctx.arc(0,0,visualW*.45,0,Math.PI*2);ctx.fill()}ctx.restore();const rr=Math.max(2,visualW*.45);if(state.appMode!=='play'){state.visibleHit.push({n,x:center.x,y:center.y,r:rr,key:n.key,type:n.type});state.inspectHit.push({kind:'note',label:'Note',id:n.key,hiddenKey:itemKey('note',n.key),n,x:center.x,y:center.y,r:rr})};if(hidden)drawHiddenHalo(center.x,center.y,rr);return}
     if(__milRectOutsideView(center.x-visualW*2,center.y-visualW*2,center.x+visualW*2,center.y+visualW*2,w,h))return;const iw=img?.naturalWidth||100,ih=img?.naturalHeight||80,hh=visualW*ih/iw,drawAng=(n.fallbackKind==='drag'||n.fallbackKind==='fracture'||key.includes('drag')||key.includes('fracture'))?texRot:texRot+180;if(img&&img.naturalWidth)__milDrawRotTinted(img,center.x,center.y,visualW,hh,drawAng,noteAlpha,noteColor);else{ctx.save();ctx.globalAlpha*=noteAlpha*(noteColor[3]/255);ctx.translate(center.x,center.y);ctx.rotate(drawAng*Math.PI/180);ctx.fillStyle=`rgb(${noteColor[0]},${noteColor[1]},${noteColor[2]})`;ctx.beginPath();ctx.ellipse(0,0,visualW*.5,visualW*.34,0,0,Math.PI*2);ctx.fill();ctx.restore()}if(state.appMode!=='play'){state.visibleHit.push({n,x:center.x,y:center.y,r:radius,key:n.key,type:n.type});state.inspectHit.push({kind:'note',label:'Note',id:n.key,hiddenKey:itemKey('note',n.key),n,x:center.x,y:center.y,r:radius})};if(hidden)drawHiddenHalo(center.x,center.y,radius);
   }
@@ -263,7 +273,7 @@ let __pluDrawHitRing,__pluDrawOneParticle;
  * continuous trail. */
 function __pluParticleStride(n){return n.__pluParticleStride||1}
 function __pluDrawParticles(rt,n,sec,st,w,h){
-  if(!state.hitEffects||n.isFake||n.type===NOTE_FRACTURE)return;
+  if(!state.hitEffects||state.lowMemory||n.isFake||n.type===NOTE_FRACTURE)return;
   const mobilePlay=state.appMode==='play'&&((navigator.maxTouchPoints||0)>0||matchMedia?.('(pointer:coarse)')?.matches);
   if(!n.isHold){
     if(sec<n.startSec||sec>n.startSec+.5)return;
@@ -273,7 +283,7 @@ function __pluDrawParticles(rt,n,sec,st,w,h){
      * per-particle rect checks at dense-drag densities. */
     const maxR=(w+h)*.5*anchor.scale*(state.noteScale||1);
     if(__milRectOutsideView(anchor.x-maxR,anchor.y-maxR,anchor.x+maxR,anchor.y+maxR,w,h))return;
-    const count=mobilePlay?8:10,emission=n.startSec,stride=__pluParticleStride(n);
+     const count=state.lowMemory?2:(mobilePlay?8:10),emission=n.startSec,stride=__pluParticleStride(n);
     if(stride<=1){for(let i=0;i<count;i++)__pluDrawOneParticle(anchor,n,sec,emission,i,w,h);return}
     /* Offset the kept indices by a stable per-note hash so the retained subset still
      * spans the burst instead of always dropping the same angular slots. */
@@ -282,7 +292,7 @@ function __pluDrawParticles(rt,n,sec,st,w,h){
     return;
   }
   if(sec<n.startSec-.5)return;
-  const step=mobilePlay ? .02 : .01,from=Math.max(n.startSec,sec-.5),to=Math.min(sec,n.endSec);if(to<from)return;
+  const step=state.lowMemory ? .08 : (mobilePlay ? .02 : .01),from=Math.max(n.startSec,sec-.5),to=Math.min(sec,n.endSec);if(to<from)return;
   /* The Hold emitter follows the judgement line on every frame. Its initial
    * hit ring still uses the cached impact position. */
   const anchor=__pluEffectLinePoint(n,Math.min(sec,n.endSec),w,h,rt);if(!anchor||anchor.alpha<=.001)return;

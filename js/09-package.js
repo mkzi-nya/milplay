@@ -73,7 +73,7 @@ storyImage=function(data){
   if(data==='builtin.rect'||data==='builtin.round_rect'||data==='builtin.line')return __pkgBuiltinShape(data);
   const builtinKey=__pkgBuiltinStoryMap[data];if(builtinKey){const bi=imgFor(builtinKey);return bi&&bi.complete&&bi.naturalWidth?bi:null}
   let rec=storyCache.get(data);if(rec){const d=rec.drawable||rec.img;return __pkgStoryDrawableReady(d)?d:null}
-  const img=new Image();img.decoding='async';rec={img,drawable:null,failed:false,source:'',sourceWidth:0,sourceHeight:0};img.onload=()=>{if(storyCache.get(data)!==rec)return;rec.sourceWidth=img.naturalWidth;rec.sourceHeight=img.naturalHeight;rec.drawable=window.__milSampleStoryboard(img);if(rec.drawable!==img)rec.img=null;render()};img.onerror=()=>{rec.failed=true};const sf=__pkgResolveStoryboardFile(data),resolved=sf?__pkgObjectUrl(sf):(__pkgCurrentHasStoryboardDir()?null:__milAssetUrl(data));let src=resolved||data;if(!/^data:|^blob:|^https?:|^\.\//i.test(src)&&!src.includes('/'))src='./'+src;rec.source=src;storyCache.set(data,rec);if(window.__milIsLowMemoryMode?.()&&storyCache.size>16){const oldest=storyCache.keys().next().value;if(oldest!==data)storyCache.delete(oldest)}img.src=src;return null;
+  const img=new Image();img.decoding='async';rec={img,drawable:null,failed:false,source:'',sourceWidth:0,sourceHeight:0};img.onload=()=>{if(storyCache.get(data)!==rec)return;rec.sourceWidth=img.naturalWidth;rec.sourceHeight=img.naturalHeight;rec.drawable=window.__milSampleStoryboard(img);if(rec.drawable!==img)rec.img=null;render()};img.onerror=()=>{rec.failed=true};const sf=__pkgResolveStoryboardFile(data),resolved=sf?__pkgObjectUrl(sf):(__pkgCurrentHasStoryboardDir()?null:__milAssetUrl(data));let src=resolved||data;if(!/^data:|^blob:|^https?:|^\.\//i.test(src)&&!src.includes('/'))src='./'+src;rec.source=src;storyCache.set(data,rec);if(window.__milIsLowMemoryMode?.()&&storyCache.size>8){const oldest=storyCache.keys().next().value;if(oldest!==data)storyCache.delete(oldest)}img.src=src;return null;
 };
 
 
@@ -98,6 +98,11 @@ function __pkgPickBackground(files,ref){
 function __pkgPickAudio(files,ref){
   if(ref){const f=__pkgResolveCurrentAsset(ref);if(f)return f}
   const pool=__pkgSorted((files||[]).filter(__pkgIsAudioFile));return pool.find(f=>/(?:^|[-_. ])(?:audio|music|song|bgm)(?:[-_. ]|$)/i.test(__pkgBase(f.name)))||pool[0]||null;
+}
+async function __pkgSetMediaWithFallback(preferred,files,report){
+  const candidates=[],seen=new Set();for(const f of [preferred,...__pkgSorted((files||[]).filter(__pkgIsAudioFile))])if(f&&!seen.has(f)){seen.add(f);candidates.push(f)}
+  let last=null;for(const file of candidates){try{await setMediaFile(file);if(file!==preferred&&preferred)report.push('音频回退：'+file.name);return file}catch(error){last=error}}
+  if(last)throw last;__milClearMedia();return null;
 }
 function __pkgStoryboardMissing(chart){const out=[],strict=__pkgCurrentHasStoryboardDir();for(const sb of chart?.storyboardObjects||chart?.storyboards||[]){if(int(sb?.type,0)!==0||!sb?.data||/^data:|^blob:|^https?:|^builtin\./i.test(sb.data))continue;if(!__pkgResolveStoryboardFile(sb.data)&&(strict||!__milResolveAssetFile(sb.data)))out.push(sb.data)}return[...new Set(out)]}
 
@@ -165,15 +170,14 @@ async function __pkgApplyMetaRecord(record){
   setPlaying(false);state.currentTime=0;state.externalChartMeta=record.displayMeta;
   __pkgStoryboardPath=record.storyboardPath||'';
   __milIndexPackageAssets(pack.files,record.chartFile.name);
-  const delay=Number(record.delay);state.audioDelay=Number.isFinite(delay)?delay:0;
   const imgFile=record.imageRef?(__milResolveAssetFile(record.imageRef,'')||__pkgPickBackground(pack.files,null)):__pkgPickBackground(pack.files,record.chartImageRef),mediaFile=record.musicRef?(__milResolveAssetFile(record.musicRef,'')||__pkgPickAudio(pack.files,null)):__pkgPickAudio(pack.files,record.chartMusicRef),report=[pack.baseReport,record.parseReport,'Milplay 专有格式：'+record.chartFile.name].filter(Boolean);
   if(record.storyboardPath)report.push('故事板路径：'+record.storyboardPath);
   if(record.imageRef&&!__milResolveAssetFile(record.imageRef,''))report.push('警告：图片路径未找到：'+record.imageRef+'；已使用包内图片候选');
   if(record.musicRef&&!__milResolveAssetFile(record.musicRef,''))report.push('警告：音乐路径未找到：'+record.musicRef+'；已使用包内音频候选');
   if(imgFile){try{await setBackgroundFile(imgFile);report.push('背景：'+imgFile.name)}catch(error){__milClearBackground();report.push('警告：背景解码失败：'+imgFile.name+'（'+(error&&error.message||error)+'）')}}else __milClearBackground();
-  if(mediaFile){try{await setMediaFile(mediaFile);report.push('音乐：'+mediaFile.name)}catch(error){__milClearMedia();report.push('警告：音频解码失败：'+mediaFile.name+'（'+(error&&error.message||error)+'）')}}else __milClearMedia();
+   if(mediaFile){try{const loaded=await __pkgSetMediaWithFallback(mediaFile,pack.files,report);if(loaded)report.push('音乐：'+loaded.name)}catch(error){__milClearMedia();report.push('警告：音频解码失败：'+mediaFile.name+'（'+(error&&error.message||error)+'）')}}else __milClearMedia();
   const missing=__pkgStoryboardMissing(record.chart);if(missing.length)report.push('警告：缺少 Storyboard 图片：'+missing.join('、'));
-  state.currentTime=0;prepare(record.chart,record.chartFile.name,report.join('\n'));
+   state.currentTime=0;prepare(record.chart,record.chartFile.name,report.join('\n'));window.__milSavePlayerSettings?.();
   if(typeof __milPersistReferencedAssets==='function')void __milPersistReferencedAssets(record.chart,record.chartFile.name,imgFile,mediaFile);
 }
 const __pkgChartSelect=id('packageChartSelect');
@@ -217,15 +221,15 @@ async function __pkgLoadFiles(fileList){
     if(illustrationRef&&!__milResolveAssetFile(illustrationRef))report.push('警告：IllustrationFile 未找到：'+illustrationRef+'；已使用包内背景候选');
     if(audioRef&&!__milResolveAssetFile(audioRef))report.push('警告：AudioFile 未找到：'+audioRef+'；已使用包内音频候选');
     if(imgFile){try{await setBackgroundFile(imgFile);report.push('背景：'+imgFile.name)}catch(e){__milClearBackground();report.push('警告：背景解码失败：'+imgFile.name+'（'+(e?.message||e)+'）')}}else __milClearBackground();
-    if(mediaFile){try{await setMediaFile(mediaFile);report.push('音乐：'+mediaFile.name)}catch(e){__milClearMedia();report.push('警告：音频解码失败：'+mediaFile.name+'（'+(e?.message||e)+'）')}}else __milClearMedia();
+     if(mediaFile){try{const loaded=await __pkgSetMediaWithFallback(mediaFile,files,report);if(loaded)report.push('音乐：'+loaded.name)}catch(e){__milClearMedia();report.push('警告：音频解码失败：'+mediaFile.name+'（'+(e?.message||e)+'）')}}else __milClearMedia();
     const missing=__pkgStoryboardMissing(chart);if(missing.length)report.push('警告：缺少 Storyboard 图片：'+missing.join('、'));else if(sbFiles.length)report.push('Storyboard 目录：'+sbFiles.length+' 个资源');
-    state.currentTime=0;prepare(chart,chartFile.name,[parsed.report,...report].filter(Boolean).join('\n'));
+     state.currentTime=0;prepare(chart,chartFile.name,[parsed.report,...report].filter(Boolean).join('\n'));window.__milSavePlayerSettings?.();
     if(typeof __milPersistReferencedAssets==='function')void __milPersistReferencedAssets(chart,chartFile.name,imgFile,mediaFile);return;
   }
   if(state.runtime&&state.chart&&uploadedBatch&&typeof __milBatchSuppliesCurrentStoryboard==='function'&&__milBatchSuppliesCurrentStoryboard(uploadedBatch)){storyCache.clear();render();setStatus([...report,'已将 Storyboard 资源加入当前谱面。'].filter(Boolean).join('\n'),'ok');return}
   __milIndexPackageAssets(files,'');const imgFile=__pkgPickBackground(files,null),mediaFile=__pkgPickAudio(files,null);
   if(imgFile){try{await setBackgroundFile(imgFile);report.push('背景：'+imgFile.name)}catch(e){__milClearBackground();report.push('警告：背景解码失败：'+imgFile.name)}}else __milClearBackground();
-  if(mediaFile){try{await setMediaFile(mediaFile);report.push('音乐：'+mediaFile.name)}catch(e){__milClearMedia();report.push('警告：音频解码失败：'+mediaFile.name)}}else __milClearMedia();
+  if(mediaFile){try{const loaded=await __pkgSetMediaWithFallback(mediaFile,files,report);if(loaded)report.push('音乐：'+loaded.name)}catch(e){__milClearMedia();report.push('警告：音频解码失败：'+mediaFile.name)}}else __milClearMedia();
   updateControls();render();const detail=found.failures?.length?'\n尝试过的候选文件：\n'+found.failures.join('\n'):'';setStatus((report.length?report.join('\n'):'没有找到可用谱面。')+detail,found.failures?.length?'warn':'ok');
 };
 })();

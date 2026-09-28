@@ -49,3 +49,12 @@ test('fullscreen fills the display by default and preserves explicit ratio',()=>
   h.get('ratioLengthInput').value='16';h.get('ratioWidthInput').value='9';h.run('__milApplyStageRatio()');
   assert.deepEqual([h.get('stageInner').style.width,h.get('stageInner').style.height],['1000px','562.5px']);
 });
+
+test('low-memory Tap and Drag are compact and Hold has semicircular cylinder caps',()=>{
+  const h=setup();
+  assert.match(h.source('js/03-plu-render.js'),/const lowW=visualW\*\.52/);
+  assert.match(h.source('js/03-plu-render.js'),/if\(n\.isHold\)\{const r=lowW\/2[\s\S]*?ctx\.arc\(body,0,r,-Math\.PI\/2,Math\.PI\/2\)[\s\S]*?ctx\.arc\(0,0,r,Math\.PI\/2,Math\.PI\*1\.5\)/);
+  assert.match(h.source('js/03-plu-render.js'),/bezierCurveTo\(lowW\*\.30/);
+  assert.match(h.source('js/03-plu-render.js'),/else if\(n\.type===NOTE_DRAG\)[\s\S]*?ctx\.strokeStyle='#9edfff'[\s\S]*?ctx\.stroke\(\)/);
+  assert.doesNotMatch(h.source('js/03-plu-render.js'),/else if\(n\.type===NOTE_DRAG\)[^}]*ctx\.fill\(\)/);
+});

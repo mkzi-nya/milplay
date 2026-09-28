@@ -53,6 +53,13 @@
       ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
       return;
     }
+    /* iOS 12 struggles with the temporary RGBA canvas used for per-note tinting.
+       Low-memory play keeps the authored alpha and skips recoloring instead of
+       paying for two extra full texture passes per note. */
+    if (state.lowMemory) {
+      ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+      return;
+    }
     const zoom = Math.abs(Number(state.viewScale)) || 1,
       rw = Math.max(1, Math.min(Math.floor(Math.min(iw, Math.abs(sw))), Math.ceil(Math.abs(dw) * zoom))),
       rh = Math.max(1, Math.min(Math.floor(Math.min(ih, Math.abs(sh))), Math.ceil(Math.abs(dh) * zoom))),
