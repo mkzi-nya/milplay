@@ -8,7 +8,7 @@
 .gameResultSong{flex:1;min-width:0}.gameResultSongTitle{font-size:clamp(14px,1.85cqw,40px);letter-spacing:.035em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gameResultDifficulty{margin-top:.5cqw;font-size:clamp(10px,1.35cqw,27px);letter-spacing:.06em;color:#ffffffa6}
 .gameResultProfile{display:flex;align-items:center;gap:1.6cqw;flex:none}.gameResultIdentity{text-align:right;font-size:clamp(12px,1.5cqw,30px);line-height:1.65}
-.gameResultReality{white-space:nowrap;font-variant-numeric:tabular-nums;color:#fffc}.gameResultReality span{display:inline-block;margin-right:.7cqw;padding:.02em .65em;border-radius:999px;background:#fff;color:#34313f;font-size:.64em;font-weight:600;vertical-align:middle}
+.gameResultReality{display:flex;flex-direction:column;align-items:flex-end;white-space:nowrap;font-variant-numeric:tabular-nums;color:#fffc}.gameResultReality span{display:inline-block;margin-right:0;padding:.02em .65em;border-radius:999px;background:#fff;color:#34313f;font-size:.64em;font-weight:600;vertical-align:middle}.gameResultReality strong{font-weight:500}.gameResultReality small{color:#9a9da7;font-size:.62em;line-height:1.1}
 .gameResultAvatar{width:5.6cqw;height:5.6cqw;min-width:34px;min-height:34px;border-radius:50%;object-fit:cover}
 .gameResultContent{position:absolute;z-index:2;left:8%;right:8%;top:30%;bottom:20%;display:grid;grid-template-columns:1.1fr 1fr;gap:5.5%;align-items:center}
 .gameResultLeft,.gameResultRight{min-width:0}.gameResultCoverFrame{width:100%;aspect-ratio:16/9;border-radius:2cqw;overflow:hidden;background:#ffffff0a;box-shadow:0 1cqw 3cqw #0005}

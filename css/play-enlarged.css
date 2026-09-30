@@ -66,6 +66,7 @@ body.playExpandedRoot .playerCard .playerTop{display:none!important}
  .hudPause[data-hud-visible="false"]::before{opacity:0}
 .hudPause[data-hud-visible="false"]{background:rgba(80,88,101,.72)}
 .hudPause[data-awaiting-tap="true"]::after{content:"";position:absolute;inset:-4px;border:1.5px solid #fff;border-radius:50%;pointer-events:none}
+.stageWrap.resultShown .hudPause{display:none!important;pointer-events:none!important}
 .hudPause:focus-visible{outline:1px solid #fff;outline-offset:1px}
 body:not([data-mode="play"]) .hudPause{display:none}
 .stageWrap.playExpanded.landscapeFallback .stageInner,

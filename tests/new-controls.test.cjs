@@ -70,7 +70,7 @@ test('sampled canvas artwork renders as the gameplay background',()=>{
 test('low-memory playback keeps the standard 60fps render cadence and restored pixel budget',()=>{
   const h=createHarness(root);
   assert.equal(h.run('RENDER_QUALITY.lowMemoryStagePixels'),960*540);
-  assert.match(h.source('js/01-base.js'),/const renderInterval=__MIL_LEGACY_IOS\?33:15\.5/);
+  assert.match(h.source('js/01-base.js'),/const renderInterval=1000\/Math\.max\(10,Math\.min\(60,Number\(state\.playFrameRate\)/);
   assert.doesNotMatch(h.source('js/01-base.js'),/state\.lowMemory\?50:15\.5/);
 });
 
@@ -110,6 +110,34 @@ test('legacy low-memory vector notes cull off-screen work and bound coincident s
   // A different cell still has room, and a new frame time clears every cell.
   assert.equal(h.run('__milNoteCellBudget(10+__MIL_NOTE_CELL,10,1.5,4)'),true);
   assert.equal(h.run('__milNoteCellBudget(10,10,1.6,4)'),true);
+});
+
+test('playback frame rate is clamped, persisted, and exposed in the player controls',async()=>{
+  const storage=new Map(),h=createHarness(root,{storage});
+  assert.ok(h.get('playFrameRateInput'));
+  h.run('setPlayFrameRate(47)');
+  assert.equal(h.run('state.playFrameRate'),47);
+  assert.equal(h.get('playFrameRateInput').value,'47');
+  await new Promise(resolve=>setTimeout(resolve,300));
+  const fresh=createHarness(root,{storage});
+  assert.equal(fresh.run('state.playFrameRate'),47);
+  fresh.run('setPlayFrameRate(999)');assert.equal(fresh.run('state.playFrameRate'),60);
+  fresh.run('setPlayFrameRate(1)');assert.equal(fresh.run('state.playFrameRate'),10);
+  assert.match(fresh.html,/id="playFrameRateInput"[^>]*min="10"[^>]*max="60"/);
+});
+
+test('pause menu has an explicit visible state and result view hides the pause control',()=>{
+  const h=createHarness(root),wrap=h.get('stageWrap'),inner=h.get('stageInner');
+  const menu=child(inner,'pauseMenu'),button=child(inner,'hudPause');
+  assert.match(h.source('js/08-pause-menu.js'),/__milPauseMenuVisible/);
+  assert.match(h.source('css/pause-menu.css'),/\.pauseMenu\.isVisible\{display:block!important\}/);
+  h.run('state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{startTime:1,endTime:1,type:0}]}],animations:[]});state.duration=state.runtime.duration;setPlaying(true);setPlaying(false)');
+  assert.equal(h.run('__milPauseMenuVisible()'),true);
+  assert.equal(menu.hidden,false);
+  assert.match(h.source('js/17-result-page.js'),/stageWrap\.classList\.add\('resultShown'\)/);
+  assert.match(h.source('css/play-enlarged.css'),/\.stageWrap\.resultShown \.hudPause\{display:none!important/);
+  assert.equal(button.className,'hudPause');
+  assert.equal(wrap.classList.contains('isPaused'),true);
 });
 
 test('fullscreen playfield blocks page gestures across the whole document',()=>{

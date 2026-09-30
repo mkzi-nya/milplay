@@ -28,8 +28,8 @@
     countdown.hidden=true;countdown.textContent='';
     if(primedMedia&&!keepPrimed){primedMedia.pause();primedMedia.muted=previousMute;primedMedia=null}
   }
-  function showMenu(){menu.hidden=false;inner.classList.add('isPaused');els.stageWrap.classList.add('isPaused')}
-  function hideMenu(){menu.hidden=true;menu.classList.remove('seeking');inner.classList.remove('isPaused');els.stageWrap.classList.remove('isPaused')}
+  function showMenu(){menu.hidden=false;menu.classList.add('isVisible');menu.style.display='block';inner.classList.add('isPaused');els.stageWrap.classList.add('isPaused')}
+  function hideMenu(){menu.hidden=true;menu.classList.remove('isVisible','seeking');menu.style.display='none';inner.classList.remove('isPaused');els.stageWrap.classList.remove('isPaused')}
   setPlaying=function(value){
     if(value){stopCountdown(true);wasStarted=true;hideMenu()}
     const wasPlaying=state.playing;
@@ -91,5 +91,8 @@
     if(!state.runtime||state.appMode!=='play'){stopCountdown();hideMenu();wasStarted=false}
     else if(state.playing){wasStarted=true;hideMenu()}
     else if(!wasStarted)hideMenu();
+    else if(!menu.hidden)showMenu();
   };
+  window.__milPauseMenuVisible=()=>!menu.hidden&&menu.classList.contains('isVisible');
+  window.__milHidePauseMenu=hideMenu;
 })();

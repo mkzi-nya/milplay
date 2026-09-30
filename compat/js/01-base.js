@@ -1,7 +1,7 @@
 'use strict';
 
 /* BUILTIN_SOURCES -> js/builtin-sources.js */
-var _els$fileInput, _els$dropZone3, _els$playModeTab3, _els$editModeTab3, _els$showHandsToggle, _els$playBtn, _els$fsPlayBtn, _els$fsBack1Btn, _els$pauseEditBtn, _els$back1Btn, _els$forward1Btn, _els$timeSlider, _els$timeInput, _els$rateSelect, _els$rateInput, _els$audioDelayInput, _els$audioVolumeInput, _els$bgBrightnessInpu, _els$audioPlayer4, _els$resetViewBtn, _els$fullscreenBtn, _els$loadSavedBtn, _els$restoreYes, _els$restoreNo, _els$clearSavedBtn;
+var _els$fileInput, _els$dropZone3, _els$playModeTab3, _els$editModeTab3, _els$showHandsToggle, _els$playBtn, _els$fsPlayBtn, _els$fsBack1Btn, _els$pauseEditBtn, _els$back1Btn, _els$forward1Btn, _els$timeSlider, _els$timeInput, _els$rateSelect, _els$rateInput, _els$audioDelayInput, _els$audioVolumeInput, _els$bgBrightnessInpu, _els$audioPlayer4, _els$resetViewBtn, _els$fullscreenBtn, _els$loadSavedBtn, _els$restoreYes, _els$restoreNo, _els$clearSavedBtn, _els$playFrameRateInp;
 const MIL_WIDTH = 1920,
   MIL_HEIGHT = 1080,
   SPEED_UNIT = 120,
@@ -160,6 +160,7 @@ const els = {
   rateInput: id('rateInput'),
   audioDelayInput: id('audioDelayInput'),
   audioVolumeInput: id('audioVolumeInput'),
+  playFrameRateInput: id('playFrameRateInput'),
   bgBrightnessInput: id('bgBrightnessInput'),
   mediaName: id('mediaName'),
   audioPlayer: id('audioPlayer'),
@@ -198,6 +199,7 @@ const state = {
   showHandTextures: false,
   editRate: 1,
   editAudioDelay: 0,
+  playFrameRate: __MIL_LEGACY_IOS ? 30 : 60,
   chart: null,
   runtime: null,
   fileName: 'chart.json',
@@ -995,6 +997,7 @@ function updateControls() {
   if (els.rateSelect) els.rateSelect.value = [...els.rateSelect.options].some(o => Number(o.value) === state.rate) ? String(state.rate) : '1';
   if (els.audioDelayInput) els.audioDelayInput.value = state.audioDelay.toFixed(3);
   if (els.audioVolumeInput) els.audioVolumeInput.value = String(state.audioVolume);
+  if (els.playFrameRateInput) els.playFrameRateInput.value = String(state.playFrameRate);
   if (els.bgBrightnessInput) els.bgBrightnessInput.value = String(state.bgBrightness);
   if (els.mediaName) els.mediaName.textContent = state.mediaName || '无音乐';
   if (els.infoCombo) els.infoCombo.textContent = state.runtime ? String(state.runtime.comboAt(t)) : '0';
@@ -1019,17 +1022,26 @@ function setPlaying(v) {
   if (state.playing) {
     syncMediaToChart(true);
     if (state.mediaUrl && state.mediaReady && els.audioPlayer) {
-      els.audioPlayer.play().catch(() => {
-        state.playing = false;
-        updateControls();
-        setStatus('浏览器阻止了自动播放，请再点一次播放。', 'warn');
-      });
+      try {
+        const result = els.audioPlayer.play();
+        if (result && typeof result.catch === 'function') result.catch(() => setStatus('音频需要再次点击播放按钮才能启动。', 'warn'));
+      } catch {
+        setStatus('音频需要再次点击播放按钮才能启动。', 'warn');
+      }
     }
   } else {
     var _els$audioPlayer;
     (_els$audioPlayer = els.audioPlayer) == null || _els$audioPlayer.pause();
   }
   updateControls();
+}
+function setPlayFrameRate(v) {
+  const n = Number(v);
+  state.playFrameRate = Math.round(clamp(Number.isFinite(n) ? n : 30, 10, 60));
+  if (els.playFrameRateInput) els.playFrameRateInput.value = String(state.playFrameRate);
+  updateControls();
+  scheduleSave();
+  window.__milSavePlayerSettings == null || window.__milSavePlayerSettings();
 }
 function resetView() {
   state.viewScale = 1;
@@ -1724,7 +1736,7 @@ function tick(now) {
   /* Play mode only needs a canvas repaint while time advances or input changes; all
      seek/mode/resize interactions call render() directly. Skipping paused frames keeps a
      phone's main thread (and battery) free while the scene is static. */
-  const renderInterval = __MIL_LEGACY_IOS ? 33 : 15.5;
+  const renderInterval = 1000 / Math.max(10, Math.min(60, Number(state.playFrameRate) || (__MIL_LEGACY_IOS ? 30 : 60)));
   if (!play) {
     render();
     __playLastRender = now;
@@ -1790,6 +1802,7 @@ function tick(now) {
   setStatus('已清除本地保存。', 'ok');
   if (els.infoAutosave) els.infoAutosave.textContent = '已清除';
 });
+(_els$playFrameRateInp = els.playFrameRateInput) == null || _els$playFrameRateInp.addEventListener('change', e => setPlayFrameRate(e.target.value));
 els.stage.addEventListener('wheel', e => {
   if (state.appMode === 'play' || !state.runtime || state.playing) return;
   e.preventDefault();

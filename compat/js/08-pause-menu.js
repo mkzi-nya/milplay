@@ -56,12 +56,15 @@
   }
   function showMenu() {
     menu.hidden = false;
+    menu.classList.add('isVisible');
+    menu.style.display = 'block';
     inner.classList.add('isPaused');
     els.stageWrap.classList.add('isPaused');
   }
   function hideMenu() {
     menu.hidden = true;
-    menu.classList.remove('seeking');
+    menu.classList.remove('isVisible', 'seeking');
+    menu.style.display = 'none';
     inner.classList.remove('isPaused');
     els.stageWrap.classList.remove('isPaused');
   }
@@ -165,6 +168,8 @@
     } else if (state.playing) {
       wasStarted = true;
       hideMenu();
-    } else if (!wasStarted) hideMenu();
+    } else if (!wasStarted) hideMenu();else if (!menu.hidden) showMenu();
   };
+  window.__milPauseMenuVisible = () => !menu.hidden && menu.classList.contains('isVisible');
+  window.__milHidePauseMenu = hideMenu;
 })();

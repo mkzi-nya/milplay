@@ -18,6 +18,7 @@
       bgBrightness: state.bgBrightness,
       noteScale: state.noteScale,
       flowSpeed: state.flowSpeed,
+      playFrameRate: state.playFrameRate,
       autoplay: !!state.autoplay,
       showHands: !!state.__playShowHands,
       ratioLength: length ? length.value : '',
@@ -44,6 +45,7 @@
     if (validNumber(saved.bgBrightness, .05, 1)) state.bgBrightness = saved.bgBrightness;
     if (validNumber(saved.noteScale, .25, 4)) state.noteScale = saved.noteScale;
     if (validNumber(saved.flowSpeed, 1.66 * .1 / 7, Infinity)) state.flowSpeed = saved.flowSpeed;
+    if (validNumber(saved.playFrameRate, 10, 60)) state.playFrameRate = Math.round(saved.playFrameRate);
     if (typeof saved.showHands === 'boolean') {
       state.__playShowHands = saved.showHands;
       if (state.appMode === 'play') state.showHandTextures = saved.showHands;
@@ -78,7 +80,7 @@
     };
     if (name === 'setRate') setRate = wrapped;else if (name === 'setAudioDelay') setAudioDelay = wrapped;else if (name === 'setAudioVolume') setAudioVolume = wrapped;else setBgBrightness = wrapped;
   }
-  for (const id of ['playNoteScaleInput', 'playFlowSpeedInput', 'autoplayToggle', 'showHandsToggle', 'ratioLengthInput', 'ratioWidthInput']) {
+  for (const id of ['playNoteScaleInput', 'playFlowSpeedInput', 'playFrameRateInput', 'autoplayToggle', 'showHandsToggle', 'ratioLengthInput', 'ratioWidthInput']) {
     const node = byId(id);
     if (node) {
       node.addEventListener('input', save);

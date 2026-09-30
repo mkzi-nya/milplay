@@ -21,7 +21,7 @@
   if (song) resultHeader.appendChild(song);
   const profile = document.createElement('div');
   profile.className = 'gameResultProfile';
-  profile.innerHTML = '<div class="gameResultIdentity"><div>user</div><div class="gameResultReality"><span>REALITY</span> 114.514</div></div><img class="gameResultAvatar" src="assets/result-avatar.png" alt="用户头像">';
+  profile.innerHTML = '<div class="gameResultIdentity"><div>问题不大</div><div class="gameResultReality"><span>REALITY</span><strong>0.00</strong><small>-11.45</small></div></div><img class="gameResultAvatar" src="assets/result-avatar.png" alt="用户头像">';
   resultHeader.appendChild(profile);
   overlay.appendChild(resultHeader);
   const gradeImage = document.createElement('img');
@@ -56,12 +56,14 @@
     const wasShowing = overlay.classList.contains('show');
     showQueued = false;
     overlay.classList.remove('show');
+    stageWrap.classList.remove('resultShown');
     overlay.setAttribute('aria-hidden', 'true');
     shownForRuntime = null;
     if (suppress && wasShowing) dismissedForRuntime = state.runtime;
   }
   function showResult() {
     if (state.appMode !== 'play' || !state.runtime || dismissedForRuntime === state.runtime) return;
+    if (typeof window.__milPauseMenuVisible === 'function' && window.__milPauseMenuVisible()) window.__milHidePauseMenu == null || window.__milHidePauseMenu();
     if (shownForRuntime === state.runtime && overlay.classList.contains('show')) return;
     const r = window.__gpScoreBreakdown == null ? void 0 : window.__gpScoreBreakdown(true);
     if (!r) return;
@@ -87,6 +89,7 @@
       if (backdrop) backdrop.style.backgroundImage = 'none';
     }
     overlay.classList.add('show');
+    stageWrap.classList.add('resultShown');
     overlay.setAttribute('aria-hidden', 'false');
     shownForRuntime = state.runtime;
   }

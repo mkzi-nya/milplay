@@ -1,5 +1,6 @@
 .pauseMenu,.pauseCountdown{position:absolute;inset:0;z-index:2147483004;touch-action:none;-webkit-touch-callout:none}
-.pauseMenu[hidden],.pauseCountdown[hidden]{display:none!important}
+.pauseMenu[hidden],.pauseCountdown[hidden],.pauseMenu:not(.isVisible){display:none!important}
+.pauseMenu.isVisible{display:block!important}
 .pauseMenuShade{position:absolute;inset:0;background:rgba(0,0,0,.86)}
 .pauseMenu.seeking{pointer-events:none}
 .pauseMenu.seeking .pauseMenuShade,.pauseMenu.seeking .pauseMenuContent{display:none}
