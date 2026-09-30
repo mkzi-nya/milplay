@@ -1,4 +1,16 @@
 html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll-behavior:none!important}
+/* While the enlarged playfield owns the viewport, remove every other page element.
+   iOS Safari would otherwise keep the surrounding document scrollable/zoomable behind
+   the fixed stage, which is what let page pinches and rubber-banding through. */
+html.playExpandedRoot{position:fixed!important;inset:0!important;width:100%!important;height:100%!important}
+body.playExpandedRoot{position:fixed!important;inset:0!important;width:100%!important;height:100%!important}
+body.playExpandedRoot .wrap{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;padding:0!important;margin:0!important;overflow:hidden!important}
+body.playExpandedRoot .wrap>header,
+body.playExpandedRoot .wrap>section:not(.playerCard),
+body.playExpandedRoot .lowMemoryStandalone,
+body.playExpandedRoot .packageChartChooser{display:none!important}
+body.playExpandedRoot .wrap>.playerCard{position:absolute!important;inset:0!important;margin:0!important;border:0!important;border-radius:0!important;display:block!important;background:#05070c!important}
+body.playExpandedRoot .playerCard .playerTop{display:none!important}
 /* Play-mode editor-control hiding lives in base.css + play-controls.css. */
 
 /* The enlarged player is literally the existing edit-mode stage promoted to a fixed layer. */
@@ -46,9 +58,12 @@ html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll
 
 .playExpandedSeek{display:none!important;pointer-events:none!important}
 .hudPause{position:absolute;z-index:2147483003;left:clamp(8px,2.5%,32px);top:8px;width:clamp(36px,4.5vw,52px);min-width:36px;height:clamp(36px,4.5vw,52px);min-height:36px;box-sizing:border-box;margin:0;padding:0;border:0;border-radius:50%;background:rgba(139,145,157,.68);box-shadow:0 1px 5px #0009;appearance:none;touch-action:none;cursor:pointer;pointer-events:auto;display:block!important;-webkit-touch-callout:none}
-.hudPause:hover,.hudPause:active{background:rgba(155,161,174,.76);transform:none;box-shadow:none}
-.hudPause::before{content:"";position:absolute;left:50%;top:50%;width:clamp(6px,.7vw,9px);height:clamp(8px,.94vw,12px);box-sizing:border-box;border-left:2px solid #202632;border-right:2px solid #202632;transform:translate(-50%,-50%);opacity:1;pointer-events:none}
-.hudPause[data-hud-visible="false"]::before{opacity:0}
+ .hudPause:hover,.hudPause:active{background:rgba(155,161,174,.76);transform:none;box-shadow:none}
+ .hudPauseIcon{position:absolute;left:50%;top:50%;width:58%;height:58%;transform:translate(-50%,-50%);fill:#202632;pointer-events:none;display:block}
+ .hudPause[data-hud-visible="false"] .hudPauseIcon{opacity:0}
+ .hudPause:hover .hudPauseIcon,.hudPause:active .hudPauseIcon{fill:#141a24}
+ .hudPause::before{content:"";position:absolute;left:50%;top:50%;width:clamp(6px,.7vw,9px);height:clamp(8px,.94vw,12px);box-sizing:border-box;border-left:2px solid #202632;border-right:2px solid #202632;transform:translate(-50%,-50%);opacity:1;pointer-events:none;display:none}
+ .hudPause[data-hud-visible="false"]::before{opacity:0}
 .hudPause[data-hud-visible="false"]{background:rgba(80,88,101,.72)}
 .hudPause[data-awaiting-tap="true"]::after{content:"";position:absolute;inset:-4px;border:1.5px solid #fff;border-radius:50%;pointer-events:none}
 .hudPause:focus-visible{outline:1px solid #fff;outline-offset:1px}

@@ -2,6 +2,10 @@
 function createHudPause({state,inner,setPlaying}){
   const button=document.createElement('button');
   button.className='hudPause';button.type='button';
+  /* Render the glyph as inline SVG rather than a ::before pseudo-element: the pseudo
+   * bar looked blank on real iOS 12 despite computing correctly, and an inline node is
+   * also trivially inspectable. The CSS keeps a fallback for the pseudo bars. */
+  button.innerHTML='<svg class="hudPauseIcon" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="6" width="3.2" height="12" rx="1"></rect><rect x="13.8" y="6" width="3.2" height="12" rx="1"></rect></svg>';
   inner.appendChild(button);
   // Keep the pause control centered over the score in the shared gameplay HUD.
   const position=()=>{
@@ -11,12 +15,12 @@ function createHudPause({state,inner,setPlaying}){
   };
   new ResizeObserver(position).observe(inner);
   position();
-  let press=null,lastTap=null,tapTimer=0,runtime=state.runtime,playing=state.playing,mode=state.appMode;
+  let press=null,runtime=state.runtime,playing=state.playing,mode=state.appMode;
   const pointers=new Set();
   const available=()=>state.appMode==='play'&&!!state.runtime;
   function clear(){
-    const old=press;press=null;lastTap=null;
-    if(tapTimer&&typeof clearTimeout==='function')clearTimeout(tapTimer);tapTimer=0;button.setAttribute('data-awaiting-tap','false');
+    const old=press;press=null;
+    button.setAttribute('data-awaiting-tap','false');
     if(old){try{button.releasePointerCapture(old.id)}catch{}}
   }
   function sync(){
@@ -52,12 +56,10 @@ function createHudPause({state,inner,setPlaying}){
     press=null;
     try{button.releasePointerCapture(e.pointerId)}catch{}
     if(now-p.at>300||Math.hypot(e.clientX-p.x,e.clientY-p.y)>8||e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom){clear();return}
-    if(!state.playing){toggle();return}
-    if(lastTap&&now-lastTap.at<=1000&&Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<=12){toggle();return}
-    lastTap={at:now,x:e.clientX,y:e.clientY};
-    button.setAttribute('data-awaiting-tap','true');
-    if(tapTimer&&typeof clearTimeout==='function')clearTimeout(tapTimer);
-    if(typeof setTimeout==='function')tapTimer=setTimeout(()=>{lastTap=null;button.setAttribute('data-awaiting-tap','false');tapTimer=0},1000);
+    /* A discrete top-left control should react to a single deliberate tap. The old
+       double-tap pair requirement made the button appear dead on real devices. The
+       long-press / drift / release-outside guards above still reject accidental taps. */
+    toggle();
   });
   button.addEventListener('lostpointercapture',()=>{if(press)clear()});
   button.addEventListener('pointercancel',clear);

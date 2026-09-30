@@ -1,0 +1,10 @@
+{
+  "name": "Milthm 播放器",
+  "short_name": "Milthm",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#080b12",
+  "theme_color": "#080b12"
+}

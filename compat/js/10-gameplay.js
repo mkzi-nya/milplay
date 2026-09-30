@@ -1000,10 +1000,14 @@
         combo = metrics.combo,
         score = metrics.score,
         acc = (metrics.acc * 100).toFixed(2) + '%';
+      /* Canvas shadowBlur is one of the slowest primitives on iOS 12; the HUD reads fine
+         without it, so the low-power profiles drop the glow instead of paying for it every
+         frame. */
+      const blur = state.lowMemory || state.__milLegacyPerf ? 0 : Math.max(2, w * .002);
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.shadowColor = 'rgba(0,0,0,.5)';
-      ctx.shadowBlur = Math.max(2, w * .002);
+      ctx.shadowBlur = blur;
       ctx.fillStyle = 'rgba(255,255,255,.98)';
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'center';
@@ -1088,8 +1092,17 @@
     const q = ev.getCoalescedEvents == null ? void 0 : ev.getCoalescedEvents();
     return q && q.length ? q[q.length - 1] : ev;
   }
+  /* The stage capture listener must never swallow input aimed at the playfield
+   * controls (pause button, progress slider, corner buttons).  They live inside the
+   * stage wrapper, so without this guard their own pointer handlers never fire and the
+   * pause control becomes unclickable during playback. */
+  function gpOnInteractiveControl(ev) {
+    const t = ev.target;
+    return !!t && typeof t.closest === 'function' && !!t.closest('button, input, select, textarea, a, label, .hudPause, .hudProgress, .pauseMenu, .corner, .fsLeft');
+  }
   function gpCaptureDown(ev) {
     if (!gpIsPlay() || gp.autoplay || !state.playing) return;
+    if (gpOnInteractiveControl(ev)) return;
     if (ev.pointerType === 'mouse' && ev.button !== 0) return;
     ev.preventDefault();
     ev.stopImmediatePropagation();

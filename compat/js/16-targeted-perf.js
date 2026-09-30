@@ -54,9 +54,10 @@
       return;
     }
     /* iOS 12 struggles with the temporary RGBA canvas used for per-note tinting.
-       Low-memory play keeps the authored alpha and skips recoloring instead of
-       paying for two extra full texture passes per note. */
-    if (state.lowMemory) {
+       Low-memory play (and the legacy-iOS play profile, which shares the same budget)
+       keeps the authored alpha and skips recoloring instead of paying for two extra
+       full texture passes plus a buffer resize per note. */
+    if (state.lowMemory || state.__milLegacyPerf) {
       ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
       return;
     }

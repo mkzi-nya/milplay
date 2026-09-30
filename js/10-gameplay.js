@@ -399,7 +399,11 @@ window.__gpDrawManualEffects=gpDrawManualEffects;
 if(typeof drawCombo==='function'){
   drawCombo=function(rt,sec,w,h){
     if(!gpIsPlay())return;const metrics=gpHudMetrics(sec),combo=metrics.combo,score=metrics.score,acc=(metrics.acc*100).toFixed(2)+'%';
-    ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=Math.max(2,w*.002);ctx.fillStyle='rgba(255,255,255,.98)';ctx.textBaseline='middle';ctx.textAlign='center';
+    /* Canvas shadowBlur is one of the slowest primitives on iOS 12; the HUD reads fine
+       without it, so the low-power profiles drop the glow instead of paying for it every
+       frame. */
+    const blur=(state.lowMemory||state.__milLegacyPerf)?0:Math.max(2,w*.002);
+    ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=blur;ctx.fillStyle='rgba(255,255,255,.98)';ctx.textBaseline='middle';ctx.textAlign='center';
     ctx.font=`700 ${Math.max(16,w*.0201)}px ui-sans-serif,system-ui`;ctx.fillText(metrics.label,w*.5,w*.03594);ctx.font=`800 ${Math.max(20,w*.02634)}px ui-sans-serif,system-ui`;ctx.fillText(String(combo),w*.5,w*.06771);
     ctx.textAlign='right';ctx.font=`800 ${Math.max(20,w*.02684)}px ui-monospace,SFMono-Regular,Consolas,monospace`;ctx.fillText(String(score).padStart(7,'0'),w*.915,w*.03958);ctx.fillStyle='rgba(255,255,255,.75)';ctx.font=`600 ${Math.max(14,w*.02014)}px ui-sans-serif,system-ui`;ctx.fillText(acc,w*.915,w*.06684);
     const now=sec;gp.indicatorBalls=gp.indicatorBalls.filter(b=>now-b.at<=.52&&now-b.at>=-.05);const by=41.95082/1080*h,br=Math.max(4,25/1920*w);
@@ -422,7 +426,12 @@ if(gpPlayBase)setPlaying=function(v){const r=gpPlayBase(v);if(!state.playing)gpR
 /* Pointer Events map one-for-one to touchstart/move/end. */
 const stage=els.stage;
 function gpLatestPointer(ev){const q=ev.getCoalescedEvents?.();return q&&q.length?q[q.length-1]:ev}
-function gpCaptureDown(ev){if(!gpIsPlay()||gp.autoplay||!state.playing)return;if(ev.pointerType==='mouse'&&ev.button!==0)return;ev.preventDefault();ev.stopImmediatePropagation();try{stage.setPointerCapture(ev.pointerId)}catch{}const q=gpLatestPointer(ev);gpTouchStart(ev.pointerId,gpCanvasPoint(q,true),false,gpEventTime(q))}
+/* The stage capture listener must never swallow input aimed at the playfield
+ * controls (pause button, progress slider, corner buttons).  They live inside the
+ * stage wrapper, so without this guard their own pointer handlers never fire and the
+ * pause control becomes unclickable during playback. */
+function gpOnInteractiveControl(ev){const t=ev.target;return !!t&&typeof t.closest==='function'&&!!t.closest('button, input, select, textarea, a, label, .hudPause, .hudProgress, .pauseMenu, .corner, .fsLeft')}
+function gpCaptureDown(ev){if(!gpIsPlay()||gp.autoplay||!state.playing)return;if(gpOnInteractiveControl(ev))return;if(ev.pointerType==='mouse'&&ev.button!==0)return;ev.preventDefault();ev.stopImmediatePropagation();try{stage.setPointerCapture(ev.pointerId)}catch{}const q=gpLatestPointer(ev);gpTouchStart(ev.pointerId,gpCanvasPoint(q,true),false,gpEventTime(q))}
 function gpCaptureMove(ev){if(!gpIsPlay()||gp.autoplay||!gp.touches.has(ev.pointerId))return;ev.preventDefault();ev.stopImmediatePropagation();const q=gpLatestPointer(ev);gpTouchMove(ev.pointerId,gpCanvasPoint(q),gpEventTime(q))}
 function gpCaptureUp(ev){if(!gpIsPlay()||gp.autoplay||!gp.touches.has(ev.pointerId))return;ev.preventDefault();ev.stopImmediatePropagation();const q=gpLatestPointer(ev);gpTouchEnd(ev.pointerId,gpCanvasPoint(q),gpEventTime(q));try{stage.releasePointerCapture(ev.pointerId)}catch{}}
 stage.addEventListener('pointerdown',gpCaptureDown,{capture:true,passive:false});

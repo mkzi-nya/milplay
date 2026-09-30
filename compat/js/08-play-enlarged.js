@@ -38,6 +38,9 @@
     cancelAnimationFrame(resizeRaf);
     resizeRaf = requestAnimationFrame(() => {
       // Same resizeCanvas() and render() used by edit mode, with no transformed ancestor.
+      try {
+        window.__milSyncLegacyFullscreenSize == null || window.__milSyncLegacyFullscreenSize();
+      } catch {}
       resizeCanvas();
       render();
       syncExpandedControls();
@@ -49,6 +52,11 @@
     wrap.classList.remove('landscapeFallback');
     document.documentElement.classList.toggle('playExpandedRoot', on);
     document.body.classList.toggle('playExpandedRoot', on);
+    document.documentElement.classList.toggle('playFullscreenLocked', on);
+    document.body.classList.toggle('playFullscreenLocked', on);
+    try {
+      window.__milLockDocumentGestures == null || window.__milLockDocumentGestures(on);
+    } catch {}
     if (on && state.appMode !== 'play') setAppMode('play');
     resync();
   }

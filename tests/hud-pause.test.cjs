@@ -35,17 +35,13 @@ function setup(){
   function tap(props={}){event('pointerdown',props);now+=20;event('pointerup',props);button.emit('click',{detail:1});now+=60}
    return {state,window,document,button,pause,calls,event,tap,advance:n=>now+=n,resize:width=>{inner.clientWidth=width;window.innerWidth=width;resize()}};
 }
-test('touch needs two local taps within one second; paused touch resumes once',()=>{
-  const h=setup();h.tap();assert.deepEqual(h.calls,[]);h.tap();assert.deepEqual(h.calls,[false]);
-  h.tap();assert.deepEqual(h.calls,[false,true]);h.tap();assert.deepEqual(h.calls,[false,true]);
+test('a single deliberate touch toggles pause, and resuming touches work the same',()=>{
+  const h=setup();h.tap();assert.deepEqual(h.calls,[false]);
+  h.tap();assert.deepEqual(h.calls,[false,true]);
+  h.tap();assert.deepEqual(h.calls,[false,true,false]);
 });
-test('first touch shows a circle while awaiting the second tap',()=>{
-  const h=setup();h.tap();assert.equal(h.button.attrs['data-awaiting-tap'],'true');
-  h.advance(500);h.tap();assert.deepEqual(h.calls,[false]);assert.equal(h.button.attrs['data-awaiting-tap'],'false');
-});
-test('desktop pointer also needs two clicks; accessible click remains operable',()=>{
-  const h=setup();h.tap({pointerType:'mouse'});assert.deepEqual(h.calls,[]);
-  h.tap({pointerType:'mouse'});assert.deepEqual(h.calls,[false]);
+test('desktop pointer toggles with one click; accessible click remains operable',()=>{
+  const h=setup();h.tap({pointerType:'mouse'});assert.deepEqual(h.calls,[false]);
   h.button.emit('click',{detail:0});assert.deepEqual(h.calls,[false,true]);
   h.tap({pointerType:'mouse',button:2});assert.deepEqual(h.calls,[false,true]);
 });
@@ -53,7 +49,7 @@ test('hidden HUD retains focus and pointer hit target, undefined defaults visibl
   const h=setup();assert.equal(h.button.attrs['data-hud-visible'],'true');
   h.state.hudVisible=false;h.pause.sync();assert.equal(h.button.attrs['data-hud-visible'],'false');
   assert.equal(h.button.disabled,false);assert.equal(h.button.tabIndex,0);
-  h.tap();h.tap();assert.deepEqual(h.calls,[false]);assert.equal(h.button.attrs['aria-label'],'继续播放');
+  h.tap();assert.deepEqual(h.calls,[false]);assert.equal(h.button.attrs['aria-label'],'继续播放');
 });
 test('focused Space/Enter consume gameplay keys, repeat and keyup do not toggle',()=>{
   for(const code of ['Space','Enter']){
@@ -63,28 +59,26 @@ test('focused Space/Enter consume gameplay keys, repeat and keyup do not toggle'
     assert.deepEqual(h.calls,[false]);
   }
 });
-test('stale taps are cleared by outside hits, multitouch, cancel, focus, chart, playback and mode changes',()=>{
+test('an in-flight press is invalidated by outside hits, multitouch, cancel, focus and mode changes',()=>{
   for(const interrupt of [
     h=>h.window.emit('pointerdown',{pointerId:2}),
     h=>{h.event('pointerdown');h.event('pointerdown',{pointerId:2,isPrimary:false});h.event('pointerup',{pointerId:2});h.event('pointerup')},
     h=>h.event('pointercancel'),h=>h.button.emit('blur'),h=>h.window.emit('blur'),
     h=>h.window.emit('pagehide'),h=>h.document.emit('visibilitychange'),
     h=>{h.state.runtime={};h.pause.sync()},
-    h=>{h.state.playing=false;h.pause.sync();h.state.playing=true;h.pause.sync()},
     h=>{h.state.appMode='edit';h.pause.sync();h.state.appMode='play';h.pause.sync()},
-    h=>h.advance(1001),
-  ]){const h=setup();h.tap();interrupt(h);h.tap();assert.deepEqual(h.calls,[])}
+  ]){const h=setup();h.event('pointerdown');interrupt(h);h.event('pointerup');assert.deepEqual(h.calls,[])}
 });
-test('long press, movement, release outside and lost capture invalidate the tap pair',()=>{
+test('long press, movement, release outside and lost capture invalidate a press',()=>{
   for(const interrupt of [h=>h.advance(301),h=>h.event('pointermove',{clientX:30}),
     h=>h.event('pointermove',{clientX:100}),h=>h.button.emit('lostpointercapture')]){
-    const h=setup();h.tap();h.event('pointerdown');interrupt(h);h.event('pointerup');h.tap();assert.deepEqual(h.calls,[]);
+    const h=setup();h.event('pointerdown');interrupt(h);h.event('pointerup');assert.deepEqual(h.calls,[]);
   }
-  const h=setup();h.tap();h.event('pointerdown');h.event('pointerup',{clientY:57});h.tap();assert.deepEqual(h.calls,[]);
+  const h=setup();h.event('pointerdown');h.event('pointerup',{clientY:57});assert.deepEqual(h.calls,[]);
 });
 test('unsynchronized chart or playback changes invalidate an active press',()=>{
   for(const change of [h=>h.state.runtime={},h=>h.state.playing=false]){
-    const h=setup();h.tap();h.event('pointerdown');change(h);h.event('pointerup');assert.deepEqual(h.calls,[]);
+    const h=setup();h.event('pointerdown');change(h);h.event('pointerup');assert.deepEqual(h.calls,[]);
   }
 });
 test('wiring preserves original range and synchronizes HUD after rendering',()=>{
@@ -93,7 +87,7 @@ test('wiring preserves original range and synchronizes HUD after rendering',()=>
   assert.match(js,/oldRender\.apply\(this,arguments\);pause\.sync\(\)/);
   assert.doesNotMatch(js,/createElement\('input'\)|playExpandedPause/);
   assert.match(html,/id="timeSlider"[^>]*type="range"/);
-  assert.match(css,/\.hudPause\[data-hud-visible="false"\]::before\{opacity:0\}/);
+  assert.match(css,/\.hudPause\[data-hud-visible="false"\] \.hudPauseIcon\{opacity:0\}/);
    assert.match(css,/width:clamp\(36px,4\.5vw,52px\);min-width:36px;height:clamp\(36px,4\.5vw,52px\);min-height:36px/);
    assert.match(source('css/final-fullscreen.css'),/\.hudPause[^}]*left:8px!important;top:8px!important/);
 });
@@ -108,17 +102,20 @@ test('pause stays aligned with the gameplay HUD before fullscreen',()=>{
 test('circular pause target sits above progress hit area',()=>{
   const css=source('css/play-enlarged.css'),progress=source('css/play-controls.css');
   const declarations=selector=>Object.fromEntries(css.split(`${selector}{`)[1].split('}')[0].split(';').filter(Boolean).map(s=>s.split(':')));
-  const button=declarations('.hudPause'),icon=declarations('.hudPause::before');
+  const button=declarations('.hudPause'),icon=declarations('.hudPause::before'),svg=declarations('.hudPauseIcon');
   for(const [key,value]of Object.entries({padding:'0',margin:'0',border:'0','border-radius':'50%',background:'rgba(139,145,157,.68)','box-shadow':'0 1px 5px #0009',appearance:'none','box-sizing':'border-box','min-height':'36px','pointer-events':'auto','display':'block!important'}))assert.equal(button[key],value,key);
   const active=declarations('.hudPause:hover,.hudPause:active');
   assert.equal(active.background,'rgba(155,161,174,.76)');assert.equal(active.transform,'none');assert.equal(active['box-shadow'],'none');
-  assert.equal(icon.width,'clamp(6px,.7vw,9px)');assert.equal(icon.height,'clamp(8px,.94vw,12px)');
-  assert.equal(icon['border-left'],'2px solid #202632');assert.equal(icon['border-right'],'2px solid #202632');
+  // The visible glyph is an inline SVG node; the pseudo bars remain a hidden fallback.
+  assert.equal(svg['pointer-events'],'none');assert.equal(svg.fill,'#202632');assert.equal(svg.display,'block');
+  assert.match(source('js/08-hud-pause.js'),/hudPauseIcon.*viewBox="0 0 24 24"/s);
+  assert.match(source('js/08-hud-pause.js'),/<rect x="7" y="6"/);
   assert.equal(icon['pointer-events'],'none');
+  assert.equal(icon.display,'none');
   assert.ok(Number(button['z-index'])>Number(progress.match(/\.hudProgress\{[^}]*z-index:(\d+)/)[1]));
-  // 小舞台暂停命中区进入顶部 24px 时，仍必须能双击暂停、单击继续。
+  // 小舞台暂停命中区进入顶部 24px 时，仍必须能单击暂停、再次单击继续。
   const h=setup();assert.ok(h.button.getBoundingClientRect().top<24);
-  h.tap();h.tap();h.tap();assert.deepEqual(h.calls,[false,true]);
+  h.tap();h.tap();assert.deepEqual(h.calls,[false,true]);
 });
 test('legacy stage pause routes are absent and lower playback control remains',()=>{
   const html=source('index.html');

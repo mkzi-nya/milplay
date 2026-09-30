@@ -688,6 +688,17 @@ drawNote = function (rt, n, sec, st, w, h) {
       noteColor[2] = Math.round(noteColor[2] * .82);
     }
     if (state.lowMemory) {
+      /* Legacy draw budget: the vector path was reached for every note whose alpha>0,
+         including ones entirely outside the viewport (dense charts keep ~700 such notes
+         per frame). Reject them with the same conservative box the textured path uses
+         before paying for save/translate/path/stroke. */
+      if (n.isHold) {
+        const m2 = Math.max(16, visualW * 2);
+        if (__milRectOutsideView(Math.min(center.x, tail.x) - m2, Math.min(center.y, tail.y) - m2, Math.max(center.x, tail.x) + m2, Math.max(center.y, tail.y) + m2, w, h)) return;
+      } else if (__milRectOutsideView(center.x - visualW * 2, center.y - visualW * 2, center.x + visualW * 2, center.y + visualW * 2, w, h)) return;
+      /* Bound coincident stacking (only indistinguishable in the vector path): keep a
+         handful per cell so a 70-deep pile does not cost 70 full vector draws. */
+      if (state.appMode === 'play' && state.__milLegacyPerf && !__milNoteCellBudget(center.x, center.y, sec, 4)) return;
       __pluDrawLowMemoryNote(n, center, tail, visualW, noteAlpha, noteColor, texRot);
       if (state.appMode !== 'play') {
         state.visibleHit.push({
@@ -867,7 +878,7 @@ function __pluParticleStride(n) {
 }
 function __pluDrawParticles(rt, n, sec, st, w, h) {
   var _matchMedia;
-  if (!state.hitEffects || state.lowMemory || n.isFake || n.type === NOTE_FRACTURE) return;
+  if (!state.hitEffects || state.lowMemory || state.__milLegacyPerf || n.isFake || n.type === NOTE_FRACTURE) return;
   const mobilePlay = state.appMode === 'play' && ((navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia.matches));
   if (!n.isHold) {
     if (sec < n.startSec || sec > n.startSec + .5) return;

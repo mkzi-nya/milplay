@@ -8,16 +8,38 @@
   const isFallback = () => wrap.classList.contains('nativePlayFullscreen');
   // Safari 12 cannot evaluate the viewport min()/dvh sizing in the fullscreen CSS.
   const legacySizing = !window.CSS || !CSS.supports('width', 'min(100vw, 100dvh)');
+  /* iOS 12 Safari reports 100vh larger than the visible area (toolbar) and cannot parse
+   * dvh, so fullscreen sizing is driven from the live visual viewport instead. */
+  function viewportSize() {
+    const vv = window.visualViewport;
+    const w = Math.round(vv && vv.width || window.innerWidth || document.documentElement.clientWidth || 1);
+    const h = Math.round(vv && vv.height || window.innerHeight || document.documentElement.clientHeight || 1);
+    return {
+      w,
+      h
+    };
+  }
   function syncLegacySize() {
-    if (!legacySizing || !els.stageInner) return;
-    if (isNative() || isFallback()) {
+    if (!legacySizing) return;
+    const inner = els.stageInner;
+    if (!inner) return;
+    const expanded = isNative() || isFallback() || wrap.classList.contains('playExpanded');
+    if (expanded) {
+      const {
+        w: vw,
+        h: vh
+      } = viewportSize();
+      wrap.style.setProperty('width', vw + 'px', 'important');
+      wrap.style.setProperty('height', vh + 'px', 'important');
       const ratio = state.stageRatio || 16 / 9,
-        w = state.stageRatioCustom ? Math.min(innerWidth, innerHeight * ratio) : innerWidth;
-      els.stageInner.style.setProperty('width', w + 'px', 'important');
-      els.stageInner.style.setProperty('height', (state.stageRatioCustom ? w / ratio : innerHeight) + 'px', 'important');
+        w = state.stageRatioCustom ? Math.min(vw, vh * ratio) : vw;
+      inner.style.setProperty('width', w + 'px', 'important');
+      inner.style.setProperty('height', (state.stageRatioCustom ? w / ratio : vh) + 'px', 'important');
     } else {
-      els.stageInner.style.removeProperty('width');
-      els.stageInner.style.removeProperty('height');
+      wrap.style.removeProperty('width');
+      wrap.style.removeProperty('height');
+      inner.style.removeProperty('width');
+      inner.style.removeProperty('height');
     }
   }
   window.__milSyncLegacyFullscreenSize = syncLegacySize;
@@ -25,6 +47,69 @@
     wrap.classList.remove('playExpanded');
     document.documentElement.classList.remove('playExpandedRoot');
     document.body.classList.remove('playExpandedRoot');
+    lockDocumentGestures(false);
+  }
+  /* iOS 12 ignores user-scalable=no for pinch gestures and does not reliably honour
+   * touch-action, so a live playfield additionally neutralises pinch/zoom by (a) locking
+   * overflow/touch-action inline on the root, and (b) snapping the visual viewport back to
+   * scale 1 whenever the page manages to zoom. */
+  let __milViewportMeta = null,
+    __milViewportOriginal = null;
+  function viewportMeta() {
+    if (__milViewportMeta) return __milViewportMeta;
+    __milViewportMeta = document.querySelector('meta[name="viewport"]');
+    if (!__milViewportMeta) {
+      __milViewportMeta = document.createElement('meta');
+      __milViewportMeta.name = 'viewport';
+      document.head.appendChild(__milViewportMeta);
+      __milViewportOriginal = '';
+    } else __milViewportOriginal = __milViewportMeta.getAttribute('content') || '';
+    return __milViewportMeta;
+  }
+  function lockDocumentGestures(on) {
+    const html = document.documentElement,
+      body = document.body;
+    for (const el of [html, body]) {
+      if (!el || !el.style) continue;
+      if (on) {
+        if ((el.style.getPropertyValue == null ? void 0 : el.style.getPropertyValue('touch-action')) !== 'none') el.style.setProperty('touch-action', 'none', 'important');
+        el.style.setProperty('overflow', 'hidden', 'important');
+      } else {
+        el.style.removeProperty('touch-action');
+        el.style.removeProperty('overflow');
+      }
+    }
+    const meta = viewportMeta();
+    if (on) {
+      meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover');
+    } else if (__milViewportOriginal !== null) {
+      meta.setAttribute('content', __milViewportOriginal);
+    }
+  }
+  function resetVisualZoom() {
+    /* Toggling maximum-scale is the only reliable way to drop an in-progress WebKit
+     * pinch on iOS 12 (touch-action is unsupported and user-scalable is ignored).
+     * This does not depend on visualViewport, which iOS 12 lacks. */
+    const meta = viewportMeta();
+    const base = 'width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover';
+    meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover, minimum-scale=0.25, maximum-scale=5');
+    requestAnimationFrame(() => {
+      meta.setAttribute('content', base);
+    });
+    if (window.visualViewport && window.visualViewport.scale && window.visualViewport.scale !== 1) {
+      try {
+        window.scrollTo(0, 0);
+      } catch {}
+    }
+  }
+  window.__milLockDocumentGestures = lockDocumentGestures;
+  /* iOS 12 keeps rubber-banding the page behind a fixed playfield even with
+     `touch-action:none`, so mark the document while a fullscreen play session is live. */
+  function syncDocumentLock() {
+    const locked = isNative() || isFallback() || wrap.classList.contains('playExpanded');
+    document.documentElement.classList.toggle('playFullscreenLocked', locked);
+    document.body.classList.toggle('playFullscreenLocked', locked);
+    lockDocumentGestures(locked);
   }
   async function unlockOrientation() {
     try {
@@ -52,25 +137,37 @@
     wrap.classList.remove('nativePlayFullscreen', 'nativeLandscapeFallback');
     clearOldExpanded();
     await unlockOrientation();
+    syncDocumentLock();
     syncLegacySize();
     if (typeof markStageResize === 'function') markStageResize();
     resizeCanvas();
     render();
   }
+  function enterExpandedClass() {
+    wrap.classList.add('playExpanded');
+    document.documentElement.classList.add('playExpandedRoot');
+    document.body.classList.add('playExpandedRoot');
+    window.__milSetExpanded == null || window.__milSetExpanded(true);
+    syncDocumentLock();
+    syncLegacySize();
+    requestAnimationFrame(() => {
+      syncLegacySize();
+      if (typeof markStageResize === 'function') markStageResize();
+      resizeCanvas();
+      render();
+    });
+  }
   async function enter() {
+    var _matchMedia;
     window.__gpEscPauseGuardUntil = 0;
     clearOldExpanded();
     wrap.classList.remove('nativePlayFullscreen', 'nativeLandscapeFallback');
-    if (!wrap.requestFullscreen && !wrap.webkitRequestFullscreen) {
-      wrap.classList.add('playExpanded');
-      document.documentElement.classList.add('playExpandedRoot');
-      document.body.classList.add('playExpandedRoot');
-      window.__milSetExpanded == null || window.__milSetExpanded(true);
-      requestAnimationFrame(() => {
-        if (typeof markStageResize === 'function') markStageResize();
-        resizeCanvas();
-        render();
-      });
+    /* Mobile (iOS 12 iPhone has no element fullscreen; iPad's is inconsistent) fills the
+       viewport with the CSS overlay path instead of the Fullscreen API. Desktop still
+       uses native fullscreen for a real monitor/OS fullscreen. */
+    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia.matches);
+    if (coarse || !wrap.requestFullscreen && !wrap.webkitRequestFullscreen) {
+      enterExpandedClass();
       return;
     }
     let nativeOk = false;
@@ -85,17 +182,13 @@
         nativeOk = isNative();
       }
     } catch {}
-    if (!nativeOk && !isNative()) {
-      wrap.classList.add('playExpanded');
-      document.documentElement.classList.add('playExpandedRoot');
-      document.body.classList.add('playExpandedRoot');
-      window.__milSetExpanded == null || window.__milSetExpanded(true);
-    }
+    if (!nativeOk && !isNative()) enterExpandedClass();
     if (isNative()) try {
       var _navigator$keyboard2;
       await ((_navigator$keyboard2 = navigator.keyboard) == null || _navigator$keyboard2.lock == null ? void 0 : _navigator$keyboard2.lock(['Escape']));
     } catch {}
     await unlockOrientation();
+    syncDocumentLock();
     syncLegacySize();
     requestAnimationFrame(() => {
       if (typeof markStageResize === 'function') markStageResize();
@@ -121,6 +214,7 @@
       }
     }
     if (isNative() || isFallback()) wrap.classList.remove('nativeLandscapeFallback');
+    syncDocumentLock();
     syncLegacySize();
     requestAnimationFrame(() => {
       if (typeof markStageResize === 'function') markStageResize();
@@ -134,8 +228,55 @@
     passive: true
   });
   window.addEventListener('resize', () => {
-    if (isNative() || isFallback()) sync();
+    if (isNative() || isFallback() || wrap.classList.contains('playExpanded')) {
+      syncLegacySize();
+      sync();
+    }
   }, {
     passive: true
+  });
+  if (window.visualViewport) try {
+    window.visualViewport.addEventListener('resize', () => {
+      if (__milFullscreenLocked()) {
+        syncLegacySize();
+        if (typeof markStageResize === 'function') markStageResize();
+        resizeCanvas();
+        render();
+      }
+    }, {
+      passive: true
+    });
+  } catch {}
+  /* Belt-and-braces pinch guard: even if preventDefault on the touch stream is not enough
+   * on a given iOS build, snap the visual viewport back as soon as a pinch starts. */
+  function __milFullscreenLocked() {
+    return isNative() || isFallback() || wrap.classList.contains('playExpanded');
+  }
+  for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, e => {
+    if (state.appMode !== 'play' || !__milFullscreenLocked()) return;
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    resetVisualZoom();
+  }, {
+    capture: true,
+    passive: false
+  });
+  /* Two-finger touch is judgement input, never a page gesture. Block it early and keep
+   * re-asserting scale 1 while it is down, because some iOS 12 builds begin the pinch
+   * before the first touchmove reaches a non-passive listener. */
+  function __milMultiTouchGuard(e) {
+    var _e$target;
+    if (state.appMode !== 'play' || !__milFullscreenLocked()) return;
+    if (!e.touches || e.touches.length < 2) return;
+    if ((_e$target = e.target) != null && _e$target.closest != null && _e$target.closest('button, input, select, textarea, a, label')) return;
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    resetVisualZoom();
+  }
+  document.addEventListener('touchstart', __milMultiTouchGuard, {
+    capture: true,
+    passive: false
+  });
+  document.addEventListener('touchmove', __milMultiTouchGuard, {
+    capture: true,
+    passive: false
   });
 })();

@@ -48,6 +48,20 @@ test('play-stage touch prevention leaves the enlarge button clickable',()=>{
   assert.equal(prevented,0);
 });
 
+test('gameplay pointer capture never swallows playfield controls (pause button)',()=>{
+  const h=createHarness(root),stage=h.get('stage');
+  assert.match(h.source('js/10-gameplay.js'),/gpOnInteractiveControl/);
+  assert.match(h.source('js/10-gameplay.js'),/if\(gpOnInteractiveControl\(ev\)\)return/);
+  // With playback running, a pointerdown on the pause button must reach the button.
+  h.run('state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{startTime:99,endTime:99,type:0}]}],animations:[]});state.duration=state.runtime.duration;state.appMode="play";setPlaying(true)');
+  const listener=[...(stage.listeners.get('pointerdown')||[])].find(fn=>String(fn).includes('gpCaptureDown'));
+  assert.ok(listener,'stage pointerdown capture listener registered');
+  let captured=null;
+  const button={closest:sel=>sel&&sel.includes('button')?{}:null};
+  listener({target:button,pointerId:1,pointerType:'touch',button:0,preventDefault(){captured='prevented'},stopImmediatePropagation(){captured='stopped'}});
+  assert.equal(captured,null);
+});
+
 test('sampled canvas artwork renders as the gameplay background',()=>{
   const h=createHarness(root);
   assert.match(h.source('js/01-base.js'),/img\.complete===undefined\|\|img\.complete\)\&\&\(img\.naturalWidth\|\|img\.width\)/);
@@ -56,8 +70,56 @@ test('sampled canvas artwork renders as the gameplay background',()=>{
 test('low-memory playback keeps the standard 60fps render cadence and restored pixel budget',()=>{
   const h=createHarness(root);
   assert.equal(h.run('RENDER_QUALITY.lowMemoryStagePixels'),960*540);
-  assert.match(h.source('js/01-base.js'),/const renderInterval=15\.5/);
+  assert.match(h.source('js/01-base.js'),/const renderInterval=__MIL_LEGACY_IOS\?33:15\.5/);
   assert.doesNotMatch(h.source('js/01-base.js'),/state\.lowMemory\?50:15\.5/);
+});
+
+test('legacy iOS play uses a reduced backing-store budget and 30fps cadence',()=>{
+  const h=createHarness(root);
+  assert.equal(h.run('RENDER_QUALITY.legacyStagePixels'),854*480);
+  assert.equal(h.run('RENDER_QUALITY.legacyDpr'),1);
+  assert.match(h.source('js/01-base.js'),/const __MIL_LEGACY_IOS=/);
+  assert.match(h.source('js/13-fullscreen.js'),/playFullscreenLocked/);
+  assert.match(h.source('css/final-fullscreen.css'),/playFullscreenLocked/);
+});
+
+test('legacy iOS keeps the canvas backing store across viewport jitter so it never flashes',()=>{
+  const h=createHarness(root);
+  assert.match(h.source('js/01-base.js'),/const __STAGE_JITTER=__MIL_LEGACY_IOS\?16:0/);
+  assert.match(h.source('js/01-base.js'),/__stageHysteresis\(els\.stage\.width,rawW\)/);
+  // Non-legacy environments stay pixel-exact: any change is applied immediately.
+  assert.equal(h.run('__stageHysteresis(960,961)'),961);
+  assert.equal(h.run('__stageHysteresis(960,900)'),900);
+});
+
+test('legacy low-memory vector notes cull off-screen work and bound coincident stacking',()=>{
+  const h=createHarness(root);
+  const src=h.source('js/03-plu-render.js');
+  // The vector path must reject notes outside the viewport like the textured path.
+  assert.match(src,/Legacy draw budget/);
+  assert.match(src,/if\(state\.lowMemory\)\{/);
+  assert.match(src,/__milRectOutsideView\(center\.x-visualW\*2,center\.y-visualW\*2,center\.x\+visualW\*2,center\.y\+visualW\*2,w,h\)\)return/);
+  // Coincident-note budget is applied only for the legacy-iOS play profile.
+  assert.match(src,/state\.__milLegacyPerf&&!__milNoteCellBudget\(center\.x,center\.y,sec,4\)\)return/);
+  // The budget map self-resets per frame and never lets a cell exceed its cap.
+  assert.equal(h.run('__milNoteCellBudget(10,10,1.5,4)'),true);
+  assert.equal(h.run('__milNoteCellBudget(10,10,1.5,4)'),true);
+  assert.equal(h.run('__milNoteCellBudget(10,10,1.5,4)'),true);
+  assert.equal(h.run('__milNoteCellBudget(10,10,1.5,4)'),true);
+  assert.equal(h.run('__milNoteCellBudget(10,10,1.5,4)'),false);
+  // A different cell still has room, and a new frame time clears every cell.
+  assert.equal(h.run('__milNoteCellBudget(10+__MIL_NOTE_CELL,10,1.5,4)'),true);
+  assert.equal(h.run('__milNoteCellBudget(10,10,1.6,4)'),true);
+});
+
+test('fullscreen playfield blocks page gestures across the whole document',()=>{
+  const h=createHarness(root),wrap=h.get('stageWrap');let prevented=0;
+  const guard=h.context.document.listeners.get('touchmove').find(fn=>String(fn).includes('e.preventDefault()'));
+  const ev=target=>({target,touches:{length:1},changedTouches:{length:1},preventDefault(){prevented++}});
+  h.run("state.appMode='play'");
+  wrap.classList.add('playExpanded');
+  guard(ev({closest:()=>null}));assert.equal(prevented,1);
+  guard(ev({closest:()=>({})}));assert.equal(prevented,1);
 });
 
 test('failed native fullscreen request falls back to the enlarged stage and can exit',async()=>{

@@ -1,3 +1,13 @@
+/* While an enlarged/native-fullscreen gameplay session owns the viewport, lock the
+   document itself: on iOS 12 `touch-action` alone does not stop rubber-banding or
+   pinch-zoom of the page behind the playfield. */
+html.playExpandedRoot,body.playExpandedRoot{overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important;height:100%!important}
+body.playExpandedRoot{position:fixed!important;inset:0!important;width:100%!important}
+/* Keep the :has() selector alone: Safari 12 drops an entire selector list that
+   contains one unknown pseudo-class, which would also disable the JS-driven
+   playFullscreenLocked rule below. */
+body[data-mode="play"]:has(.stageWrap.nativePlayFullscreen){overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important}
+html.playFullscreenLocked,body.playFullscreenLocked{overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important}
 /* Use the whole display unless the player explicitly selected a stage ratio. */
 .stageWrap.nativePlayFullscreen,.stageWrap:fullscreen,.stageWrap:-webkit-full-screen{
   position:fixed!important;inset:0!important;z-index:2147483000!important;
@@ -40,4 +50,24 @@
     transform-origin:50% 50%!important;
   }
   body[data-mode="play"] .stageWrap.nativeLandscapeFallback #stage{width:100%!important;height:100%!important;transform:none!important}
+}
+/* Installed (Home Screen) web app: Safari's chrome is gone, but iOS still reserves the
+   notch / home-indicator insets. black-translucent lets the playfield run edge to edge;
+   keep HUD controls clear of the sensor housing. */
+html.is-ios-standalone body[data-mode="play"] .stageWrap.nativePlayFullscreen,
+html.is-ios-standalone body[data-mode="play"] .stageWrap.playExpanded{
+  width:100%!important;height:100%!important;
+}
+html.is-ios-standalone body[data-mode="play"] .stageWrap.nativePlayFullscreen .stageInner,
+html.is-ios-standalone body[data-mode="play"] .stageWrap.playExpanded .stageInner{
+  width:100%!important;height:100%!important;
+}
+html.is-ios-standalone body[data-mode="play"] .stageWrap.nativePlayFullscreen .hudPause{
+  left:calc(8px + env(safe-area-inset-left,0px))!important;
+  top:calc(8px + env(safe-area-inset-top,0px))!important;
+}
+html.is-ios-standalone body[data-mode="play"] .stageWrap.nativePlayFullscreen .corner,
+html.is-ios-standalone body[data-mode="play"] .stageWrap.playExpanded .corner{
+  top:calc(8px + env(safe-area-inset-top,0px))!important;
+  right:calc(8px + env(safe-area-inset-right,0px))!important;
 }

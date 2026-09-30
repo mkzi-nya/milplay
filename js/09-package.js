@@ -57,7 +57,7 @@ function __pkgStoryDrawableReady(d){return !!d&&((d instanceof HTMLCanvasElement
 // 所有加载覆盖共用预算；不按触屏或谱面复杂度降低画质，也不随 DPR 反复解码。
 function __pkgStorySampleSize(w,h){
   if(!(w>0&&h>0&&Number.isFinite(w)&&Number.isFinite(h)))return null;
-  const low=!!window.__milIsLowMemoryMode?.(),maxSide=low?1280:2560,maxPixels=low?1048576:4147200;
+  const low=!!window.__milIsLowMemoryMode?.()||!!state.__milLegacyPerf,maxSide=low?1280:2560,maxPixels=low?1048576:4147200;
   const k=Math.min(1,maxSide/Math.max(w,h),Math.sqrt(maxPixels/(w*h)));
   return {width:Math.max(1,Math.floor(w*k)),height:Math.max(1,Math.floor(h*k))};
 }

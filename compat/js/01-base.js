@@ -23,6 +23,8 @@ const LINE_W = 8,
 const RENDER_QUALITY = Object.freeze({
   maxDpr: 2,
   maxStagePixels: 1920 * 1080 * 2,
+  legacyDpr: 1,
+  legacyStagePixels: 854 * 480,
   lowMemoryDpr: 1,
   lowMemoryStagePixels: 960 * 540,
   mobileEditDpr: 1.25,
@@ -169,9 +171,19 @@ const els = {
 const ctx = els.stage.getContext('2d', {
   alpha: false
 });
+/* iOS 12 Safari is the compatibility floor. Its Canvas2D main thread cannot sustain a
+ * device-pixel canvas at 60 Hz on A8/A9/A10 hardware, and it silently ignores
+ * user-scalable=no. Detect it once so both the render cadence and the global gesture
+ * guard can pick the conservative profile. */
+const __MIL_UA = String(navigator && navigator.userAgent || '');
+const __MIL_LEGACY_IOS = (/iP(?:hone|ad|od)/.test(__MIL_UA) || /Macintosh/.test(__MIL_UA) && (navigator.maxTouchPoints || 0) > 1) && /OS 1[0-2]_[0-9_]+/.test(__MIL_UA);
+const __MIL_LEGACY_SAFARI = __MIL_LEGACY_IOS || !window.CSS || !CSS.supports('width', 'min(1px, 2px)');
 function __milDefaultLowMemory() {
   const nav = navigator || {},
     ua = String(nav.userAgent || '');
+  /* iOS 12 cannot afford the full render path at all, so it is low-memory regardless of
+     any older saved preference the user may still carry in localStorage. */
+  if (__MIL_LEGACY_IOS) return true;
   let saved = '';
   try {
     saved = localStorage.getItem('mil-low-memory') || '';
@@ -182,6 +194,7 @@ function __milDefaultLowMemory() {
 const state = {
   appMode: 'play',
   lowMemory: __milDefaultLowMemory(),
+  __milLegacyPerf: __MIL_LEGACY_IOS,
   showHandTextures: false,
   editRate: 1,
   editAudioDelay: 0,
@@ -651,17 +664,27 @@ function normalizeRwc(raw) {
   }
   return chart;
 }
+/* The authored note textures are ~1300x1300 (~6.8 MB decoded each, ~31 MB together) but
+ * render at roughly 60 px on the legacy-iOS 960x540 backing store. Low-memory play loads
+ * 256 px stand-ins (assets/lo/) instead -- a 25x decode saving with no visible change --
+ * and drops the *_double variants, which imgFor already falls back to the plain texture
+ * for. The 20 MB monolithic hold sheets are skipped too: low-memory holds are drawn as
+ * vector shapes and never sample them. */
+const __LO_TEXTURES = new Set(['tap', 'tap_double', 'extap', 'extap_double', 'drag']);
+const __HOLD_TEXTURES = new Set(['hold', 'hold_double', 'exhold', 'exhold_double']);
 function loadImages() {
   const promises = [];
   for (const [k, src] of Object.entries(BUILTIN_SOURCES)) {
-    if (state.lowMemory && (k === 'hold' || k === 'hold_double' || k === 'exhold' || k === 'exhold_double')) continue;
+    if (state.lowMemory && __HOLD_TEXTURES.has(k)) continue;
+    if (state.lowMemory && k.endsWith('_double')) continue;
+    const useSrc = state.lowMemory && __LO_TEXTURES.has(k) ? src.replace(/(^|\/)assets\//, '$1assets/lo/') : src;
     const img = new Image();
     img.decoding = 'async';
     state.images[k] = img;
     promises.push(new Promise(res => {
       img.onload = img.onerror = res;
     }));
-    img.src = src;
+    img.src = useSrc;
   }
   return Promise.all(promises).then(() => {
     state.imagesReady = true;
@@ -687,12 +710,25 @@ let __stageResizeDirty = true,
 function markStageResize() {
   __stageResizeDirty = true;
 }
+/* iOS 12 fires visualViewport/resize continuously while Safari's toolbars animate, and
+ * the layout viewport can report a size that jitters by a few pixels. Reallocating the
+ * canvas backing store clears it, which reads as the playfield (and every note on it)
+ * flashing. Legacy iOS therefore keeps the current backing store unless the new size
+ * differs by more than a small hysteresis threshold: the canvas is CSS-scaled to fill
+ * regardless, so a couple of stray pixels are invisible while a per-frame clear is not. */
+const __STAGE_JITTER = __MIL_LEGACY_IOS ? 16 : 0;
+function __stageHysteresis(current, next) {
+  return __STAGE_JITTER > 0 && current > 0 && Math.abs(next - current) <= __STAGE_JITTER ? current : next;
+}
 function resizeCanvas() {
   var _els$stageWrap, _matchMedia, _matchMedia2, _state$runtime$notes, _state$runtime$storyb;
   const rotated = !!((_els$stageWrap = els.stageWrap) != null && (_els$stageWrap = _els$stageWrap.classList) != null && _els$stageWrap.contains('nativeLandscapeFallback') && matchMedia != null && (_matchMedia = matchMedia('(orientation:portrait)')) != null && _matchMedia.matches),
     coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia2 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia2.matches),
     heavy = !!state.runtime && ((((_state$runtime$notes = state.runtime.notes) == null ? void 0 : _state$runtime$notes.length) || 0) > 2500 || (((_state$runtime$storyb = state.runtime.storyboards) == null ? void 0 : _state$runtime$storyb.length) || 0) > 100),
-    cap = state.lowMemory ? RENDER_QUALITY.lowMemoryDpr : state.appMode === 'play' ? RENDER_QUALITY.maxDpr : coarse ? heavy ? RENDER_QUALITY.heavyMobileEditDpr : RENDER_QUALITY.mobileEditDpr : heavy ? RENDER_QUALITY.heavyDesktopEditDpr : RENDER_QUALITY.maxDpr,
+    /* Legacy iOS gets its own play budget even when the user has not opted into
+       low-memory mode: A8/A9/A10 GPUs cannot blit a 2x playfield at 60 Hz. */
+    legacyPlay = __MIL_LEGACY_IOS && state.appMode === 'play' && !state.lowMemory,
+    cap = state.lowMemory ? RENDER_QUALITY.lowMemoryDpr : legacyPlay ? RENDER_QUALITY.legacyDpr : state.appMode === 'play' ? RENDER_QUALITY.maxDpr : coarse ? heavy ? RENDER_QUALITY.heavyMobileEditDpr : RENDER_QUALITY.mobileEditDpr : heavy ? RENDER_QUALITY.heavyDesktopEditDpr : RENDER_QUALITY.maxDpr,
     rawDpr = Number(window.devicePixelRatio),
     dpr = Math.min(Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1, cap),
     key = `${dpr}:${rotated}`;
@@ -701,10 +737,12 @@ function resizeCanvas() {
     cssW = Math.max(1, rotated ? els.stage.clientWidth : r.width),
     cssH = Math.max(1, rotated ? els.stage.clientHeight : r.height);
   // CSS 旋转使用变换前尺寸；面积预算只缩放一次，避免逐轴限制造成长宽比变化。
-  const stagePixels = state.lowMemory ? RENDER_QUALITY.lowMemoryStagePixels : RENDER_QUALITY.maxStagePixels,
+  const stagePixels = state.lowMemory ? RENDER_QUALITY.lowMemoryStagePixels : legacyPlay ? RENDER_QUALITY.legacyStagePixels : RENDER_QUALITY.maxStagePixels,
     scale = Math.min(dpr, Math.sqrt(stagePixels / (cssW * cssH))),
-    w = Math.max(1, Math.floor(cssW * scale)),
-    h = Math.max(1, Math.floor(cssH * scale));
+    rawW = Math.max(1, Math.floor(cssW * scale)),
+    rawH = Math.max(1, Math.floor(cssH * scale)),
+    w = __stageHysteresis(els.stage.width, rawW),
+    h = __stageHysteresis(els.stage.height, rawH);
   if (els.stage.width !== w || els.stage.height !== h) {
     els.stage.width = w;
     els.stage.height = h;
@@ -822,23 +860,58 @@ function drawCover(img, w, h) {
     dh = ih * sc;
   ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
 }
-function drawOldBg(w, h) {
-  ctx.fillStyle = 'rgb(18,20,28)';
-  ctx.fillRect(0, 0, w, h);
+function drawOldBg(c, w, h) {
+  c.fillStyle = 'rgb(18,20,28)';
+  c.fillRect(0, 0, w, h);
   for (let y = 0; y < h; y += 4) {
     const a = (20 + 40 * y / Math.max(1, h)) / 255;
-    ctx.fillStyle = `rgba(30,38,55,${a})`;
-    ctx.fillRect(0, y, w, 4);
+    c.fillStyle = `rgba(30,38,55,${a})`;
+    c.fillRect(0, y, w, 4);
   }
 }
+function drawCoverInto(c, img, w, h) {
+  const iw = img.naturalWidth || img.width || 1,
+    ih = img.naturalHeight || img.height || 1,
+    sc = Math.max(w / iw, h / ih),
+    dw = iw * sc,
+    dh = ih * sc;
+  c.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+}
+/* The gameplay backdrop (gradient scanlines + fitted cover art + brightness shade) is
+ * static for a given size/brightness/image. Rebuilding it every frame cost ~h/4 fill
+ * rects plus a large scaled blit, which dominated the frame on iOS 12. Cache one
+ * offscreen buffer and only blit it. */
+let __bgCache = null;
 function drawBg(w, h) {
-  drawOldBg(w, h);
-  const img = state.backgroundImage;
-  if (img && (img.complete === undefined || img.complete) && (img.naturalWidth || img.width)) {
-    drawCover(img, w, h);
-    ctx.fillStyle = `rgba(0,0,0,${1 - state.bgBrightness})`;
-    ctx.fillRect(0, 0, w, h);
+  const img = state.backgroundImage,
+    ready = !!img && (img.complete === undefined || img.complete) && (img.naturalWidth || img.width),
+    bright = state.bgBrightness;
+  const key = `${w}x${h}:${bright}`;
+  if (!__bgCache || __bgCache.width !== w || __bgCache.height !== h || __bgCache.key !== key || __bgCache.img !== img) {
+    const c = __bgCache && __bgCache.width === w && __bgCache.height === h ? __bgCache.canvas : document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const g = c.getContext('2d', {
+      alpha: false
+    });
+    drawOldBg(g, w, h);
+    if (ready) {
+      drawCoverInto(g, img, w, h);
+      g.fillStyle = `rgba(0,0,0,${1 - bright})`;
+      g.fillRect(0, 0, w, h);
+    }
+    __bgCache = {
+      canvas: c,
+      width: w,
+      height: h,
+      key,
+      img
+    };
   }
+  ctx.drawImage(__bgCache.canvas, 0, 0);
+}
+function __milInvalidateBgCache() {
+  __bgCache = null;
 }
 function drawBackgroundDim(w, h) {
   ctx.save();
@@ -1651,7 +1724,7 @@ function tick(now) {
   /* Play mode only needs a canvas repaint while time advances or input changes; all
      seek/mode/resize interactions call render() directly. Skipping paused frames keeps a
      phone's main thread (and battery) free while the scene is static. */
-  const renderInterval = 15.5;
+  const renderInterval = __MIL_LEGACY_IOS ? 33 : 15.5;
   if (!play) {
     render();
     __playLastRender = now;
@@ -1778,14 +1851,36 @@ els.stage.addEventListener('pointerdown', handleStagePointerDown);
 els.stage.addEventListener('pointermove', handleStagePointerMove);
 els.stage.addEventListener('pointerup', endPointer);
 els.stage.addEventListener('pointercancel', endPointer);
-/* Safari 12 may still start native gestures before touch-action is honored. */
-for (const type of ['touchstart', 'touchmove', 'touchend', 'gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(type, e => {
+/* Safari 12 may still start native gestures before touch-action is honored.
+ * In an enlarged/native-fullscreen play session the whole viewport is the playfield,
+ * so the guard has to cover the entire document (not only the stage wrapper) or the
+ * page can still pinch-zoom / rubber-band / double-tap-zoom over the letterbox.
+ * Interactive controls keep their native click synthesis. */
+function __milPlayGestureGuard(e) {
   var _e$target;
   if (state.appMode !== 'play') return;
   const wrap = els.stageWrap;
-  if (!wrap || !wrap.contains(e.target)) return; /* Preserve native click synthesis for the stage controls on iOS 12. */
+  const expanded = !!wrap && (wrap.classList.contains('playExpanded') || wrap.classList.contains('nativePlayFullscreen') || document.fullscreenElement === wrap || document.webkitFullscreenElement === wrap);
+  if (!expanded && (!wrap || !wrap.contains(e.target))) return;
+  /* Preserve native click synthesis for the stage controls on iOS 12. */
   if ((_e$target = e.target) != null && _e$target.closest != null && _e$target.closest('button, input, select, textarea, a, label')) return;
-  e.preventDefault();
+  if (typeof e.preventDefault === 'function') e.preventDefault();
+}
+for (const type of ['touchstart', 'touchmove', 'touchend', 'gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(type, __milPlayGestureGuard, {
+  capture: true,
+  passive: false
+});
+/* Double-tap zoom is synthesized from tap timing and is not covered by gesture*. */
+document.addEventListener('dblclick', e => {
+  var _e$target2;
+  if (state.appMode === 'play' && !((_e$target2 = e.target) != null && _e$target2.closest != null && _e$target2.closest('button, input, select, textarea, a, label'))) e.preventDefault();
+}, {
+  capture: true,
+  passive: false
+});
+document.addEventListener('touchmove', e => {
+  var _e$target3;
+  /* iOS 12 needs an explicit non-passive scroll block for multi-touch even when the page is fixed. */if (state.appMode === 'play' && e.touches && e.touches.length > 1 && !((_e$target3 = e.target) != null && _e$target3.closest != null && _e$target3.closest('input, select, textarea'))) e.preventDefault();
 }, {
   capture: true,
   passive: false
@@ -3755,6 +3850,28 @@ function __milRectOutsideView(minX, minY, maxX, maxY, w, h) {
     y1 = py + minY * scale,
     y2 = py + maxY * scale;
   return Math.max(x1, x2) < 0 || Math.min(x1, x2) > w || Math.max(y1, y2) < 0 || Math.min(y1, y2) > h;
+}
+/* Dense drag/hold charts can stack dozens of notes on the same screen cell (e.g. 71
+ * coincident notes measured in a stress chart). They are visually indistinguishable, so
+ * the legacy-iOS vector path keeps a per-frame budget per coarse cell. The map is keyed
+ * by the current frame time, so it resets itself without an explicit clear call and the
+ * win/lose decision for a given note stays stable frame-to-frame (no flicker). State
+ * lives on `state`/globals so it survives the script boundary (and the vm test harness). */
+var __milNoteCellFrame = -1,
+  __milNoteCellMap = new Map();
+var __MIL_NOTE_CELL = 96;
+function __milNoteCellBudget(x, y, sec, cap) {
+  if (sec !== __milNoteCellFrame) {
+    __milNoteCellFrame = sec;
+    __milNoteCellMap.clear();
+  }
+  const cx = Math.floor(x / __MIL_NOTE_CELL),
+    cy = Math.floor(y / __MIL_NOTE_CELL),
+    key = cx + ':' + cy,
+    n = __milNoteCellMap.get(key) || 0;
+  if (n >= cap) return false;
+  __milNoteCellMap.set(key, n + 1);
+  return true;
 }
 const __milScreenMapHitBeforeFullReview = screenMapHit;
 screenMapHit = function (h) {

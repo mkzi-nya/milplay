@@ -32,7 +32,7 @@ const document={body:new Element(),head:new Element(),documentElement:new Elemen
 context=vm.createContext({console,document,Image:ImageFake,HTMLCanvasElement:Element,Blob,File,TextDecoder,TextEncoder,Response,DecompressionStream,performance,URL:{createObjectURL:()=>`blob:test-${++serial}`,revokeObjectURL:u=>revoked.push(u)},navigator:{language:'en-US',maxTouchPoints:1},matchMedia:()=>({matches:false,addEventListener:noop}),screen:{orientation:{}},devicePixelRatio:1,innerWidth:1280,innerHeight:720,requestAnimationFrame:f=>(raf.push(f),raf.length),cancelAnimationFrame:noop,setTimeout,clearTimeout,queueMicrotask,ResizeObserver:class{observe(){}},localStorage:{getItem:()=>null,setItem:noop,removeItem:noop},addEventListener:(t,f)=>{if(t==='message')messages.add(f)},removeEventListener:(t,f)=>{if(t==='message')messages.delete(f)}});
 context.window=context;context.globalThis=context;
 const run=s=>vm.runInContext(s,context,{timeout:10000});
-for(const m of html.matchAll(/<script src="([^"]+)"/g))vm.runInContext(fs.readFileSync(path.join(root,m[1]),'utf8'),context,{filename:m[1],timeout:10000});
+for(const m of html.matchAll(/<script src="([^"]+)"/g)){const rel=String(m[1]).replace(/[?#].*$/,'');vm.runInContext(fs.readFileSync(path.join(root,rel),'utf8'),context,{filename:rel,timeout:10000});}
 async function main(){
  assert.equal(run('typeof ensureDiffModel'), 'undefined');assert.equal(run('typeof normHand'), 'undefined');assert.equal(run('typeof assign_hands'), 'undefined');
  const archive=process.argv[2]||path.resolve(root,'../milthm-archive/code/chart/js');
