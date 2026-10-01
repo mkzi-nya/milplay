@@ -36,8 +36,8 @@ function setup(){
     DOMMatrixReadOnly:class{constructor(value){const values=value.slice(7,-1).split(',').map(Number);this.a=values[0];this.b=values[1]}},
     clamp:(v,min,max)=>Math.max(min,Math.min(max,v)),render(){},updateModeUI(){},updateControls(){},updateUI(){},
     seek(t){seeks.push(t);state.currentTime=t;context.updateControls()}});
-  vm.runInContext(source('js/07-hud-progress.js'),context);
-  vm.runInContext(source('js/07-play-controls.js'),context);
+  vm.runInContext(source('js/ui/hud-progress.js'),context);
+  vm.runInContext(source('js/ui/play-controls.js'),context);
   return {state,seeks,slider:inner.child,window,document,context,
     geometry(r,t='none'){rect=r;transform=t}};
 }
@@ -122,7 +122,7 @@ test('HTML wiring and CSS remove the extra bar and disable the historical enlarg
   const html=source('index.html'),css=readdirSync(join(__dirname,'css')).map(f=>source('css/'+f)).join('\n');
   const removed='fs'+'Progress';
   for(const text of [html,css,...readdirSync(join(__dirname,'js')).filter(f=>f.endsWith('.js')).map(f=>source('js/'+f))])assert.equal(text.includes(removed),false);
-  assert.ok(html.indexOf('js/07-hud-progress.js')<html.indexOf('js/07-play-controls.js'));
+  assert.ok(html.indexOf('js/ui/hud-progress.js')<html.indexOf('js/ui/play-controls.js'));
   assert.match(html,/id="timeSlider"/);
   assert.match(css,/\.playExpandedSeek\{display:none!important;pointer-events:none!important\}/);
   assert.match(css,/\.hudProgress\{[^}]*pointer-events:none/);

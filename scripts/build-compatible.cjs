@@ -21,6 +21,17 @@ function copyDirEntries(from, to, extension) {
   }
 }
 
+function listFiles(dir, extension, prefix = '') {
+  const files = [];
+  for (const name of fs.readdirSync(dir)) {
+    const absolute = path.join(dir, name);
+    const relative = path.join(prefix, name);
+    if (fs.statSync(absolute).isDirectory()) files.push(...listFiles(absolute, extension, relative));
+    else if (!extension || path.extname(name) === extension) files.push(relative);
+  }
+  return files;
+}
+
 cleanDir(out);
 fs.mkdirSync(jsOut, { recursive: true });
 fs.mkdirSync(cssOut, { recursive: true });
@@ -33,9 +44,11 @@ const preset = [require.resolve('@babel/preset-env'), {
   loose: true,
 }];
 
-for (const name of fs.readdirSync(path.join(root, 'js'))) {
-  if (path.extname(name) !== '.js') continue;
-  const source = path.join(root, 'js', name);
+const jsFiles = listFiles(path.join(root, 'js'), '.js');
+for (const relative of jsFiles) {
+  const source = path.join(root, 'js', relative);
+  const destination = path.join(jsOut, relative);
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
   const text = fs.readFileSync(source, 'utf8');
   const result = babel.transformSync(text, {
     filename: source,
@@ -44,13 +57,12 @@ for (const name of fs.readdirSync(path.join(root, 'js'))) {
     compact: false,
     sourceMaps: false,
   });
-  fs.writeFileSync(path.join(jsOut, name), result.code + '\n');
+  fs.writeFileSync(destination, result.code + '\n');
 }
 
 copyDirEntries(path.join(root, 'css'), cssOut, '.css');
 fs.copyFileSync(path.join(root, 'index.html'), path.join(out, 'index.html'));
 fs.copyFileSync(path.join(root, 'manifest.webmanifest'), path.join(out, 'manifest.webmanifest'));
-fs.copyFileSync(path.join(root, 'js', '00-ios12-runtime.js'), path.join(jsOut, '00-ios12-runtime.js'));
 const fflateRoot = path.resolve(path.dirname(require.resolve('fflate')), '..');
 fs.copyFileSync(path.join(fflateRoot, 'umd', 'index.js'), path.join(jsOut, 'fflate.js'));
 fs.copyFileSync(path.join(fflateRoot, 'LICENSE'), path.join(out, 'fflate-LICENSE'));
@@ -65,7 +77,6 @@ function contentHash(file) {
 }
 const indexPath = path.join(out, 'index.html');
 let html = fs.readFileSync(indexPath, 'utf8');
-html = html.replace('src="compat/js/00-ios12-runtime.js"', 'src="js/00-ios12-runtime.js"');
 html = html.replace(/src="compat\/js\//g, 'src="js/');
 html = html.replace(/(src|href)="(js|css)\/([^"]+?)(\?[^"]*)?"/g, (match, attr, dir, name) => {
   return `${attr}="${dir}/${name}?v=${contentHash(path.join(out, dir, name))}"`;
@@ -85,4 +96,4 @@ rootHtml = rootHtml
     `"${rel}?v=${contentHash(path.join(root, 'css', name))}"`);
 fs.writeFileSync(rootIndexPath, rootHtml);
 
-console.log(`Built ${fs.readdirSync(jsOut).length} JS files for Safari 12 in ${path.relative(root, out)}/`);
+console.log(`Built ${jsFiles.length} JS files for Safari 12 in ${path.relative(root, out)}/`);

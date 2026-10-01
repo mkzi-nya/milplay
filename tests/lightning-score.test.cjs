@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const score=require('../js/09-score.js');
+const score=require('../js/scoring/score.js');
 
 test('lightning reserve absorbs four hits and overflow drains heat to zero',()=>{
   const st=score.create(300),full=st.bMax;

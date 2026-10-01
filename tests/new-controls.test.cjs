@@ -44,14 +44,14 @@ test('play-stage gesture prevention preserves interactive controls',()=>{
 
 test('play-stage touch prevention leaves the enlarge button clickable',()=>{
   const h=createHarness(root);let prevented=0;
-  assert.match(h.source('js/01-base.js'),/e\.target\?\.closest\?\.\('button, input, select, textarea, a, label'\)\)return/);
+  assert.match(h.source('js/core/base.js'),/e\.target\?\.closest\?\.\('button, input, select, textarea, a, label'\)\)return/);
   assert.equal(prevented,0);
 });
 
 test('gameplay pointer capture never swallows playfield controls (pause button)',()=>{
   const h=createHarness(root),stage=h.get('stage');
-  assert.match(h.source('js/10-gameplay.js'),/gpOnInteractiveControl/);
-  assert.match(h.source('js/10-gameplay.js'),/if\(gpOnInteractiveControl\(ev\)\)return/);
+  assert.match(h.source('js/gameplay/controller.js'),/gpOnInteractiveControl/);
+  assert.match(h.source('js/gameplay/controller.js'),/if\(gpOnInteractiveControl\(ev\)\)return/);
   // With playback running, a pointerdown on the pause button must reach the button.
   h.run('state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{startTime:99,endTime:99,type:0}]}],animations:[]});state.duration=state.runtime.duration;state.appMode="play";setPlaying(true)');
   const listener=[...(stage.listeners.get('pointerdown')||[])].find(fn=>String(fn).includes('gpCaptureDown'));
@@ -64,29 +64,90 @@ test('gameplay pointer capture never swallows playfield controls (pause button)'
 
 test('sampled canvas artwork renders as the gameplay background',()=>{
   const h=createHarness(root);
-  assert.match(h.source('js/01-base.js'),/img\.complete===undefined\|\|img\.complete\)\&\&\(img\.naturalWidth\|\|img\.width\)/);
+  assert.match(h.source('js/core/base.js'),/img\.complete===undefined\|\|img\.complete\)\&\&\(img\.naturalWidth\|\|img\.width\)/);
+});
+
+test('iOS 12 fallback keeps the pause menu measurable and visible',()=>{
+  const css=readFileSync(join(root,'css/ios12-fallback.css'),'utf8');
+  assert.match(css,/\.pauseMenu,\.pauseCountdown,\.pauseMenuShade,\.pauseMenuContent\{top:0;right:0;bottom:0;left:0\}/);
+  assert.match(readFileSync(join(root,'css/pause-menu.css'),'utf8'),/\.pauseMenuActions\{display:flex/);
+});
+
+test('one-gigabyte low-memory profile avoids optional builtin decodes',()=>{
+  const h=createHarness(root,{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 12_5_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1 Mobile/15E148 Safari/604.1',deviceMemory:1,hardwareConcurrency:2}),src=h.source('js/core/base.js');
+  assert.match(src,/state\.lowMemory&&\(!__LO_TEXTURES\.has\(k\)\|\|k\.endsWith\('_double'\)\)/);
+  assert.equal(h.run('window.__milStoryboardSampleSize(4096,2304).width'),768);
+  assert.equal(h.run('window.__milStoryboardSampleSize(4096,2304).height'),432);
+  assert.equal(h.run('__MIL_LOW_MEMORY_BUDGET_BYTES'),400*1024*1024);
+  assert.equal(h.run('__MIL_LOW_MEMORY_UPLOAD_BUDGET_BYTES'),320*1024*1024);
+  assert.equal(h.run('state.memoryBudgetBytes'),400*1024*1024);
+});
+
+test('a 1 GB device cannot restore or apply a low-memory opt-out preference',()=>{
+  const storage=new Map([['mil-low-memory','0']]);
+  const h=createHarness(root,{storage,deviceMemory:1});
+  assert.equal(h.run('state.lowMemory'),true);
+  h.run('__milSetLowMemoryMode(false)');
+  assert.equal(h.run('state.lowMemory'),true,'constrained devices cannot leave the low-memory profile');
+  assert.equal(h.run('state.memoryBudgetBytes'),400*1024*1024);
+});
+
+test('low-memory ZIP import rejects oversized expanded contents before inflating entries',async()=>{
+  const name=Buffer.from('huge.bin'),local=Buffer.alloc(30+name.length),central=Buffer.alloc(46+name.length),end=Buffer.alloc(22),expanded=320*1024*1024+1;
+  local.writeUInt32LE(0x04034b50,0);local.writeUInt16LE(8,8);local.writeUInt32LE(1,18);local.writeUInt32LE(expanded,22);local.writeUInt16LE(name.length,26);name.copy(local,30);
+  central.writeUInt32LE(0x02014b50,0);central.writeUInt16LE(8,10);central.writeUInt32LE(1,20);central.writeUInt32LE(expanded,24);central.writeUInt16LE(name.length,28);central.writeUInt32LE(0,42);name.copy(central,46);
+  end.writeUInt32LE(0x06054b50,0);end.writeUInt16LE(1,8);end.writeUInt16LE(1,10);end.writeUInt32LE(central.length,12);end.writeUInt32LE(local.length,16);
+  const h=createHarness(root,{deviceMemory:1});h.context.__oversizedZip=new File([local,central,end],'oversized.zip',{type:'application/zip'});
+  await assert.rejects(h.run('expandInputFiles([window.__oversizedZip])'),/超过 320 MiB 资源预算/);
+});
+
+test('Safari 12.5.7 / 1 GB device profile selects the legacy path',()=>{
+  const h=createHarness(root,{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 12_5_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1 Mobile/15E148 Safari/604.1',deviceMemory:1,hardwareConcurrency:2});
+  assert.equal(h.run('__MIL_LEGACY_IOS'),true);
+  assert.equal(h.run('state.lowMemory'),true);
+  h.run('markStageResize();resizeCanvas()');
+  assert.deepEqual([h.get('stage').width,h.get('stage').height],[768,432]);
+  assert.equal(h.run('__plu100RingMaskSize'),128);
+  h.run('__milSetLowMemoryMode(false)');
+  assert.equal(h.run('__plu100RingMaskSize'),128,'iOS 12 constrained profile stays on compact effect caches');
+  h.run('__milSetLowMemoryMode(true)');
+  assert.equal(h.run('__plu100RingMaskSize'),128);
+  assert.match(h.source('js/render/hit-ring.js'),/window\.__milIsLowMemoryMode\?\.?\(\)\?12:180/);
+});
+
+test('iPad Air 1 Safari 12 profile uses bounded canvas and legacy playback defaults',()=>{
+  const h=createHarness(root,{userAgent:'Mozilla/5.0 (iPad; CPU OS 12_5_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1 Mobile/15E148 Safari/604.1'});
+  h.context.innerWidth=768;h.context.innerHeight=1024;h.context.devicePixelRatio=2;
+  assert.equal(h.run('__MIL_LEGACY_IOS'),true);
+  assert.equal(h.run('state.__milConstrainedMemory'),true);
+  assert.equal(h.run('state.lowMemory'),true);
+  assert.equal(h.run('state.playFrameRate'),30);
+  assert.equal(h.run('state.memoryBudgetBytes'),400*1024*1024);
+  h.run('markStageResize();resizeCanvas()');
+  assert.ok(h.get('stage').width*h.get('stage').height<=768*432);
+  assert.equal(h.run('__plu100RingMaskSize'),128);
 });
 
 test('low-memory playback keeps the standard 60fps render cadence and restored pixel budget',()=>{
   const h=createHarness(root);
-  assert.equal(h.run('RENDER_QUALITY.lowMemoryStagePixels'),960*540);
-  assert.match(h.source('js/01-base.js'),/const renderInterval=1000\/Math\.max\(10,Math\.min\(60,Number\(state\.playFrameRate\)/);
-  assert.doesNotMatch(h.source('js/01-base.js'),/state\.lowMemory\?50:15\.5/);
+  assert.equal(h.run('RENDER_QUALITY.lowMemoryStagePixels'),768*432);
+  assert.match(h.source('js/core/base.js'),/const renderInterval=1000\/Math\.max\(10,Math\.min\(60,Number\(state\.playFrameRate\)/);
+  assert.doesNotMatch(h.source('js/core/base.js'),/state\.lowMemory\?50:15\.5/);
 });
 
 test('legacy iOS play uses a reduced backing-store budget and 30fps cadence',()=>{
   const h=createHarness(root);
   assert.equal(h.run('RENDER_QUALITY.legacyStagePixels'),854*480);
   assert.equal(h.run('RENDER_QUALITY.legacyDpr'),1);
-  assert.match(h.source('js/01-base.js'),/const __MIL_LEGACY_IOS=/);
-  assert.match(h.source('js/13-fullscreen.js'),/playFullscreenLocked/);
+  assert.match(h.source('js/core/base.js'),/const __MIL_LEGACY_IOS=/);
+  assert.match(h.source('js/runtime/fullscreen.js'),/playFullscreenLocked/);
   assert.match(h.source('css/final-fullscreen.css'),/playFullscreenLocked/);
 });
 
 test('legacy iOS keeps the canvas backing store across viewport jitter so it never flashes',()=>{
   const h=createHarness(root);
-  assert.match(h.source('js/01-base.js'),/const __STAGE_JITTER=__MIL_LEGACY_IOS\?16:0/);
-  assert.match(h.source('js/01-base.js'),/__stageHysteresis\(els\.stage\.width,rawW\)/);
+  assert.match(h.source('js/core/base.js'),/const __STAGE_JITTER=__MIL_LEGACY_IOS\?16:0/);
+  assert.match(h.source('js/core/base.js'),/__stageHysteresis\(els\.stage\.width,rawW\)/);
   // Non-legacy environments stay pixel-exact: any change is applied immediately.
   assert.equal(h.run('__stageHysteresis(960,961)'),961);
   assert.equal(h.run('__stageHysteresis(960,900)'),900);
@@ -94,13 +155,13 @@ test('legacy iOS keeps the canvas backing store across viewport jitter so it nev
 
 test('legacy low-memory vector notes cull off-screen work and bound coincident stacking',()=>{
   const h=createHarness(root);
-  const src=h.source('js/03-plu-render.js');
+  const src=h.source('js/render/port.js');
   // The vector path must reject notes outside the viewport like the textured path.
   assert.match(src,/Legacy draw budget/);
   assert.match(src,/if\(state\.lowMemory\)\{/);
   assert.match(src,/__milRectOutsideView\(center\.x-visualW\*2,center\.y-visualW\*2,center\.x\+visualW\*2,center\.y\+visualW\*2,w,h\)\)return/);
   // Coincident-note budget is applied only for the legacy-iOS play profile.
-  assert.match(src,/state\.__milLegacyPerf&&!__milNoteCellBudget\(center\.x,center\.y,sec,4\)\)return/);
+  assert.match(src,/state\.__milLegacyPerf&&!__milNoteCellBudget\(center\.x,center\.y,sec,4,n\.key\)\)return/);
   // The budget map self-resets per frame and never lets a cell exceed its cap.
   assert.equal(h.run('__milNoteCellBudget(10,10,1.5,4)'),true);
   assert.equal(h.run('__milNoteCellBudget(10,10,1.5,4)'),true);
@@ -110,6 +171,16 @@ test('legacy low-memory vector notes cull off-screen work and bound coincident s
   // A different cell still has room, and a new frame time clears every cell.
   assert.equal(h.run('__milNoteCellBudget(10+__MIL_NOTE_CELL,10,1.5,4)'),true);
   assert.equal(h.run('__milNoteCellBudget(10,10,1.6,4)'),true);
+});
+
+test('legacy note budget keeps a stable slot for each note',()=>{
+  const h=createHarness(root);
+  h.run('__milNoteCellFrame=-1;__milNoteCellMap.clear()');
+  assert.equal(h.run("__milNoteCellBudget(10,10,1,2,'a')"),true);
+  assert.equal(h.run("__milNoteCellBudget(10,10,1,2,'a')"),false);
+  assert.equal(h.run("__milNoteCellBudget(10,10,1,2,'b')"),true);
+  assert.equal(h.run("__milNoteCellBudget(10,10,1,2,'c')"),false);
+  assert.equal(h.run("__milNoteCellBudget(10,10,1,2,'d')"),false);
 });
 
 test('playback frame rate is clamped, persisted, and exposed in the player controls',async()=>{
@@ -129,12 +200,12 @@ test('playback frame rate is clamped, persisted, and exposed in the player contr
 test('pause menu has an explicit visible state and result view hides the pause control',()=>{
   const h=createHarness(root),wrap=h.get('stageWrap'),inner=h.get('stageInner');
   const menu=child(inner,'pauseMenu'),button=child(inner,'hudPause');
-  assert.match(h.source('js/08-pause-menu.js'),/__milPauseMenuVisible/);
+  assert.match(h.source('js/ui/pause-menu.js'),/__milPauseMenuVisible/);
   assert.match(h.source('css/pause-menu.css'),/\.pauseMenu\.isVisible\{display:block!important\}/);
   h.run('state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{startTime:1,endTime:1,type:0}]}],animations:[]});state.duration=state.runtime.duration;setPlaying(true);setPlaying(false)');
   assert.equal(h.run('__milPauseMenuVisible()'),true);
   assert.equal(menu.hidden,false);
-  assert.match(h.source('js/17-result-page.js'),/stageWrap\.classList\.add\('resultShown'\)/);
+  assert.match(h.source('js/results/page.js'),/stageWrap\.classList\.add\('resultShown'\)/);
   assert.match(h.source('css/play-enlarged.css'),/\.stageWrap\.resultShown \.hudPause\{display:none!important/);
   assert.equal(button.className,'hudPause');
   assert.equal(wrap.classList.contains('isPaused'),true);

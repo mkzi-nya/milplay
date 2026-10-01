@@ -2,6 +2,13 @@
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs');
 const {createHarness}=require('./harness.js');
 const setup=()=>createHarness(path.resolve(__dirname,'..'));
+test('semantic module layout keeps the loading contract explicit',()=>{
+  const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+  for(const file of ['js/core/base.js','js/render/algebra-storyboard.js','js/gameplay/controller.js','js/scoring/score.js','js/runtime/ios12.js'])assert.equal(fs.existsSync(path.join(root,file)),true,file);
+  assert.equal(fs.readdirSync(path.join(root,'js')).some(name=>/^\d{2}-/.test(name)),false);
+  assert.ok(html.indexOf('compat/js/core/base.js')<html.indexOf('compat/js/render/port.js'));
+  assert.ok(html.indexOf('compat/js/render/algebra-storyboard.js')<html.indexOf('compat/js/performance/targeted.js'));
+});
 function lightning(){
   const h=setup();h.run(`state.runtime=makeRuntime({bpms:[{start:0,bpm:120}],lines:[{notes:[{startTime:1,endTime:1,type:2},{startTime:2,endTime:2,type:2,isFake:true},{startTime:3,endTime:3,type:2}]}],animations:[]});state.duration=state.runtime.duration;state.playing=true;__gpTest.fresh();`);return h;
 }
@@ -71,8 +78,8 @@ test('stage env follows CSS dimensions independent of DPR, and can be replayed d
 test('low-memory mode lowers canvas and storyboard budgets',()=>{
   const h=setup();h.get('stage').getBoundingClientRect=()=>({width:1920,height:1080});h.context.devicePixelRatio=3;
   h.run('state.lowMemory=true;markStageResize();resizeCanvas()');
-  assert.deepEqual([h.get('stage').width,h.get('stage').height],[960,540]);
-  assert.deepEqual({...h.run('window.__milStoryboardSampleSize(4096,2304)')},{width:1280,height:720});
+  assert.deepEqual([h.get('stage').width,h.get('stage').height],[768,432]);
+  assert.deepEqual({...h.run('window.__milStoryboardSampleSize(4096,2304)')},{width:768,height:432});
 });
 test('four-corner picture uses two clipped triangles; collapsed geometry is skipped',()=>{
   const h=setup();h.run(`window.transforms=[];window.clips=0;ctx.transform=(...a)=>transforms.push(a);ctx.clip=()=>clips++;window.sb={index:0,type:0,data:'builtin.rect',layer:1,distorted:true};window.rt={storyboards:[sb],sbValue:(s,k)=>k===TRANSPARENCY?1:SB_DEFAULTS[k]??0};drawStoryboardLayer(rt,1,0,1920,1080);`);
@@ -123,5 +130,5 @@ test('bundled image references use PNG assets only',()=>{
   const h=setup();
   assert.equal(h.run("Object.values(BUILTIN_SOURCES).every(src=>src.endsWith('.png'))"),true);
   assert.equal(h.run("Object.values(__RAIN_HOLD_SOURCE).every(src=>src.endsWith('.png'))"),true);
-  assert.match(fs.readFileSync(path.resolve(__dirname,'../js/15-algebra-storyboard.js'),'utf8'),/assets\/alg_tap\.png/);
+  assert.match(fs.readFileSync(path.resolve(__dirname,'../js/render/algebra-storyboard.js'),'utf8'),/assets\/alg_tap\.png/);
 });

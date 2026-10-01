@@ -114,6 +114,12 @@ for(const viaFile of [false,true])test(`高画质故事板取样与缓存 (${via
   assert.equal(h.run("storyCache.get('large.png').drawable"),null,'stale load cannot overwrite new record');
 });
 
+test('low-memory storyboard sampling is capped at 768x512K pixels',()=>{
+  const h=setup();h.run('state.lowMemory=true');
+  assert.deepEqual([h.run('window.__milStoryboardSampleSize(4096,2304).width'),h.run('window.__milStoryboardSampleSize(4096,2304).height')], [768,432]);
+  assert.ok(h.run('window.__milStoryboardSampleSize(4096,2304).width*window.__milStoryboardSampleSize(4096,2304).height')<=393216);
+});
+
 // 使用当前脚本链的语义自测；01 中旧版自测的事件、颜色取整规则已被后续覆盖。
 for(const name of ['__milthmFullRenderSelfTest','__algebraStoryboardReviewSelfTest','__targetedReviewSelfTest']){
   test(`original semantics: ${name}`,async()=>{

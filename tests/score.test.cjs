@@ -6,7 +6,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const S=require('../js/09-score.js');
+const S=require('../js/scoring/score.js');
 const reference=process.env.SCORE_REFERENCE_DIR||'/storage/emulated/0/.ck/mkzi/mkzi-nya.github.io/mil';
 const app=fs.readFileSync(path.join(reference,'app.js'),'utf8');
 const source=app.slice(app.indexOf('function calcCaps('),app.indexOf('function expandSequenceExpression('));
@@ -133,7 +133,7 @@ function browser(){
     setStatus:null,__milTintSlice:null,noteTextureKey:null,drawStoryboardLayer:null,drawLineState:null,
     addEventListener(){}});
   c.window=c;
-  for(const file of ['09-score.js','10-gameplay.js','16-targeted-perf.js','17-result-page.js']){
+  for(const file of ['scoring/score.js','gameplay/controller.js','performance/targeted.js','results/page.js']){
     vm.runInContext(fs.readFileSync(path.join(__dirname,'../js',file),'utf8'),c,{filename:file});
   }
   return {c,nodes,text,runtime};
@@ -147,12 +147,12 @@ test('actual 10 + 16 + result wiring, HUD labels, million-unit accuracy and sett
     assert.equal(text[0],label);
     assert.equal(c.__gpProcessScore(),o.run(input+'e'.repeat(10-input.length)).rows[input.length-1]||0);
   }
-  gp.judgeSequence=['p'];c.drawCombo(runtime,0,1920,1080);assert.equal(text.at(-1),'99.00%');
+  gp.judgeSequence=['p'];c.drawCombo(runtime,0,1920,1080);assert.equal(text.at(-1),'100.00%');
   const before=c.__gpHudMetrics(0),settled=c.__gpScoreBreakdown(true);
   assert.equal(settled.finalScore,o.final('p'+'m'.repeat(9)));
   assert.equal(settled.totalAccScore,990000);assert.equal(settled.counts.m,9);
   assert.deepEqual(c.__gpHudMetrics(0),before);assert.equal(gp.judgeSequence.length,1);
-  c.__gpShowResult();assert.equal(nodes.get('#gameResultAcc').textContent,'9.90%');
+  c.__gpShowResult();assert.equal(nodes.get('#gameResultAcc').textContent,'10.00%');
   assert.equal(nodes.get('#gameResultScore').textContent,String(settled.finalScore).padStart(7,'0'));
   c.__gpHideResult();gp.judgeSequence=Array(10).fill('e');c.__gpShowResult();
   assert.equal(nodes.get('#gameResultAcc').textContent,'100.00%');

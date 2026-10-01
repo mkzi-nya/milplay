@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
-const source=fs.readFileSync(require('node:path').join(__dirname,'../js/20-video-export.js'),'utf8');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../js/export/video.js'),'utf8');
 function harness(mode){
   let click,ticks=0,stops=0,downloads=0;const statuses=[],seeks=[];
   const btn={classList:{add(){},remove(){}},addEventListener(_,f){click=f}};

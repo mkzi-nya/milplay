@@ -184,12 +184,12 @@ Both black geometries already cover the full viewport.
 
 ### Actual changes and checks
 
-- `js/04-plu-effects.js`: moved layer 2 from before judgement lines to after
+- `js/render/effects.js`: moved layer 2 from before judgement lines to after
   gameplay drawing, immediately before HUD. Layer 0 -> dim -> layer 1 ordering
   and the existing effect/note order remain unchanged. Pluviora places foreground
   after lines, notes and particles, then HUD. This fixes foreground occlusion of
   gameplay but **cannot hide HUD**. Authored order within each layer is preserved.
-- `js/16-targeted-perf.js`: replaced the two storyboard alpha `<= .001` rejection
+- `js/performance/targeted.js`: replaced the two storyboard alpha `<= .001` rejection
   checks with `<= 0`; faint positive picture/primitive alpha is no longer discarded.
   No geometry constant, alpha value or HUD state was changed.
 - `tests/storyboard-render.test.cjs`: persistent tests for real values/pixels,

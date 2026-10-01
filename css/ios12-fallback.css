@@ -17,8 +17,16 @@
 @supports not (inset: 0) {
   .stageWrap.nativePlayFullscreen{top:0!important;right:0!important;bottom:0!important;left:0!important}
   .gameResultOverlay,.gameResultBackdrop,.gameResultShade{top:0;right:0;bottom:0;left:0}
+  .pauseMenu,.pauseCountdown,.pauseMenuShade,.pauseMenuContent{top:0;right:0;bottom:0;left:0}
 }
 .lowMemoryStandalone{display:block;margin:0 auto 12px;max-width:1220px;width:calc(100% - 16px);color:#aaa;font-size:13px}
+/* Safari 12 promotes filtered/backdrop layers to a separate surface. During canvas
+ * repaints that surface can briefly disappear, which reads as note flicker and also
+ * steals time from the already constrained Canvas2D thread. */
+@supports not (backdrop-filter: blur(1px)) {
+  .stageWrap.playExpanded::before,.stageWrap.nativePlayFullscreen::before{display:none!important;filter:none!important}
+  .corner button,.fsLeft button{backdrop-filter:none!important}
+}
 @supports not (width: 1cqw) {
   .gameResultSong{margin-left:2.5vw}
   .gameResultSongTitle{font-size:2.2vw}

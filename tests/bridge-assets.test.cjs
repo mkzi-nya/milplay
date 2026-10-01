@@ -75,6 +75,15 @@ async function main(){
  let release,active=0,maxActive=0,calls=0;context.queuedFind=async()=>{active++;maxActive=Math.max(maxActive,active);if(++calls===1)await new Promise(r=>release=r);active--;return {matches:[{},{}]}};run('__milFindParseableChart=queuedFind');const q1=run('loadFiles([file1])'),q2=run('loadFiles([file2])');for(let i=0;i<10&&!release;i++)await Promise.resolve();assert(release);release();await Promise.all([q1,q2]);assert.equal(maxActive,1);run('__milFindParseableChart=savedFind');
  // Ring tint cache must distinguish manual Good from normal judgement colors.
  run('__plu100DrawRingMask(0,0,20,0,[1,2,3],10);__plu100DrawRingMask(0,0,20,0,[4,5,6],10)');assert(run('__plu100TintedRings.has("10:1,2,3")&&__plu100TintedRings.has("10:4,5,6")'));
+ // Legacy iOS keeps only the current and immediately previous upload batch. This
+ // bounds retained File objects after repeatedly importing large ZIP packages.
+ run('state.uploadedAssetBatches=[];state.lowMemory=true;state.__milLegacyPerf=false');
+ for(let i=0;i<5;i++){context.batchFile=new File([String(i)],`batch-${i}/asset.png`);run('__milRegisterUploadedAssetBatch([batchFile])')}
+ assert.equal(run('__milEnsureUploadedAssetBatches().length'),2);
+ assert.equal(run('__milEnsureUploadedAssetBatches()[0].files[0].name'),'batch-3/asset.png');
+ run('state.lowMemory=false');
+ for(let i=5;i<14;i++){context.batchFile=new File([String(i)],`batch-${i}/asset.png`);run('__milRegisterUploadedAssetBatch([batchFile])')}
+ assert.equal(run('__milEnsureUploadedAssetBatches().length'),8);
  console.log('PASS: full script chain, prepare/seek/render, identifiers, drag type, endpoints, URL identity/revoke, stale callback, intrinsic size, cancelled load, ring tint');
 }
 main().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)});

@@ -29,7 +29,7 @@ function setup(){
      constructor(fn){resize=fn}
      observe(node){assert.equal(node,inner)}
    }});
-  vm.runInContext(source('js/08-hud-pause.js'),context);
+  vm.runInContext(source('js/ui/hud-pause.js'),context);
   const pause=context.createHudPause({state,inner,setPlaying:v=>{state.playing=v;calls.push(v)}}),button=inner.child;
   function event(type,props={}){window.emit(type,{target:button,...props});return button.emit(type,props)}
   function tap(props={}){event('pointerdown',props);now+=20;event('pointerup',props);button.emit('click',{detail:1});now+=60}
@@ -82,8 +82,8 @@ test('unsynchronized chart or playback changes invalidate an active press',()=>{
   }
 });
 test('wiring preserves original range and synchronizes HUD after rendering',()=>{
-  const html=source('index.html'),js=source('js/08-play-enlarged.js'),css=source('css/play-enlarged.css');
-  assert.ok(html.indexOf('js/08-hud-pause.js')<html.indexOf('js/08-play-enlarged.js'));
+  const html=source('index.html'),js=source('js/ui/play-enlarged.js'),css=source('css/play-enlarged.css');
+  assert.ok(html.indexOf('js/ui/hud-pause.js')<html.indexOf('js/ui/play-enlarged.js'));
   assert.match(js,/oldRender\.apply\(this,arguments\);pause\.sync\(\)/);
   assert.doesNotMatch(js,/createElement\('input'\)|playExpandedPause/);
   assert.match(html,/id="timeSlider"[^>]*type="range"/);
@@ -108,8 +108,8 @@ test('circular pause target sits above progress hit area',()=>{
   assert.equal(active.background,'rgba(155,161,174,.76)');assert.equal(active.transform,'none');assert.equal(active['box-shadow'],'none');
   // The visible glyph is an inline SVG node; the pseudo bars remain a hidden fallback.
   assert.equal(svg['pointer-events'],'none');assert.equal(svg.fill,'#202632');assert.equal(svg.display,'block');
-  assert.match(source('js/08-hud-pause.js'),/hudPauseIcon.*viewBox="0 0 24 24"/s);
-  assert.match(source('js/08-hud-pause.js'),/<rect x="7" y="6"/);
+  assert.match(source('js/ui/hud-pause.js'),/hudPauseIcon.*viewBox="0 0 24 24"/s);
+  assert.match(source('js/ui/hud-pause.js'),/<rect x="7" y="6"/);
   assert.equal(icon['pointer-events'],'none');
   assert.equal(icon.display,'none');
   assert.ok(Number(button['z-index'])>Number(progress.match(/\.hudProgress\{[^}]*z-index:(\d+)/)[1]));

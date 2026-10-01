@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const grade=require('../js/result-grade.js');
+const grade=require('../js/results/grade.js');
 test('calculator grade boundaries and AP/FC assets',()=>{
   for(const [score,name] of [[1010000,'R'],[1009999,'M'],[1000000,'M'],[999999,'SS'],[950000,'SS'],[949999,'S'],[850000,'S'],[849999,'A'],[750000,'A'],[749999,'B'],[650000,'B'],[649999,'C'],[600000,'C'],[599999,'F']]){
     assert.equal(grade(score,{m:1},100).name,name);
@@ -21,5 +21,5 @@ test('shipped artwork uses PNG in both builds',()=>{
     visit(path.join(root,base));
   }
   assert.ok(fs.existsSync(path.join(root,'assets/lightning2.png')));
-  assert.match(fs.readFileSync(path.join(root,'compat/js/builtin-sources.js'),'utf8'),/lightning2\.png/);
+  assert.match(fs.readFileSync(path.join(root,'compat/js/assets/builtin-sources.js'),'utf8'),/lightning2\.png/);
 });

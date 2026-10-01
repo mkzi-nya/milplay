@@ -5,7 +5,7 @@ const {join}=require('node:path');
 const vm=require('node:vm');
 const source=file=>readFileSync(join(__dirname,'..',file),'utf8');
 
-/* iOS 12 has Touch Events but no Pointer Events, so js/00-ios12-runtime.js relays
+/* iOS 12 has Touch Events but no Pointer Events, so js/runtime/ios12.js relays
  * touchstart/move/end into synthetic pointer events. The pause button and the gameplay
  * capture handler both reject `isPrimary===false`; iOS recycles touch identifiers, so a
  * lone finger is frequently NOT identifier 0. This reproduces that relay and asserts the
@@ -31,7 +31,7 @@ function relay(){
   win.globalThis=win;
   win.window=win;
   const ctx=vm.createContext(win);
-  vm.runInContext(source('js/00-ios12-runtime.js'),ctx);
+  vm.runInContext(source('js/runtime/ios12.js'),ctx);
   const fire=(type,id,x=10,y=10)=>listeners[type].forEach(fn=>fn({touches:{length:1},changedTouches:[{identifier:id,clientX:x,clientY:y,pageX:x,pageY:y,screenX:x,screenY:y,target:touchTarget,radiusX:1,radiusY:1}],preventDefault(){},target:touchTarget}));
   return {fire,dispatched};
 }
