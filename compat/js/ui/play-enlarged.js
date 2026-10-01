@@ -1,6 +1,8 @@
 (() => {
   const wrap = els.stageWrap;
   if (!wrap) return;
+  const nativeFullscreenToggle = requestLandscapeFullscreen;
+  const androidFullscreen = /Android/i.test(String(navigator.userAgent || ''));
 
   // Ensure the old fullscreen HUD is back inside stageInner only if a prior patch moved it.
   // It remains hidden in the new enlarged mode, but restoring the DOM keeps normal edit mode intact.
@@ -62,8 +64,10 @@
   }
   window.__milSetExpanded = setExpanded;
 
-  // Replace the historical native-fullscreen/orientation-lock path.
+  // Android uses the browser's real element fullscreen (the same system UI used by
+  // fullscreen video). Old iOS keeps the fixed overlay compatibility path.
   requestLandscapeFullscreen = async function () {
+    if (androidFullscreen) return nativeFullscreenToggle();
     setExpanded(!wrap.classList.contains('playExpanded'));
   };
 

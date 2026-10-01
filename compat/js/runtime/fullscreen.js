@@ -6,6 +6,7 @@
   const nativeElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
   const isNative = () => nativeElement() === wrap;
   const isFallback = () => wrap.classList.contains('nativePlayFullscreen');
+  const isAndroid = /Android/i.test(String(navigator.userAgent || ''));
   // Safari 12 cannot evaluate the viewport min()/dvh sizing in the fullscreen CSS.
   const legacySizing = !window.CSS || !CSS.supports('width', 'min(100vw, 100dvh)');
   /* iOS 12 Safari reports 100vh larger than the visible area (toolbar) and cannot parse
@@ -162,11 +163,10 @@
     window.__gpEscPauseGuardUntil = 0;
     clearOldExpanded();
     wrap.classList.remove('nativePlayFullscreen', 'nativeLandscapeFallback');
-    /* Mobile (iOS 12 iPhone has no element fullscreen; iPad's is inconsistent) fills the
-       viewport with the CSS overlay path instead of the Fullscreen API. Desktop still
-       uses native fullscreen for a real monitor/OS fullscreen. */
+    /* Android supports element fullscreen like its video player. Keep iOS on the CSS
+       overlay path because old Mobile Safari has no reliable element fullscreen. */
     const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia.matches);
-    if (coarse || !wrap.requestFullscreen && !wrap.webkitRequestFullscreen) {
+    if (coarse && !isAndroid || !wrap.requestFullscreen && !wrap.webkitRequestFullscreen) {
       enterExpandedClass();
       return;
     }
@@ -187,7 +187,12 @@
       var _navigator$keyboard2;
       await ((_navigator$keyboard2 = navigator.keyboard) == null || _navigator$keyboard2.lock == null ? void 0 : _navigator$keyboard2.lock(['Escape']));
     } catch {}
-    await unlockOrientation();
+    if (isNative() && isAndroid) {
+      try {
+        var _screen$orientation2;
+        await ((_screen$orientation2 = screen.orientation) == null || _screen$orientation2.lock == null ? void 0 : _screen$orientation2.lock('landscape'));
+      } catch {}
+    } else await unlockOrientation();
     syncDocumentLock();
     syncLegacySize();
     requestAnimationFrame(() => {
@@ -264,12 +269,10 @@
    * re-asserting scale 1 while it is down, because some iOS 12 builds begin the pinch
    * before the first touchmove reaches a non-passive listener. */
   function __milMultiTouchGuard(e) {
-    var _e$target;
     if (state.appMode !== 'play' || !__milFullscreenLocked()) return;
     if (!e.touches || e.touches.length < 2) return;
-    if ((_e$target = e.target) != null && _e$target.closest != null && _e$target.closest('button, input, select, textarea, a, label')) return;
     if (typeof e.preventDefault === 'function') e.preventDefault();
-    resetVisualZoom();
+    if (!isAndroid) resetVisualZoom();
   }
   document.addEventListener('touchstart', __milMultiTouchGuard, {
     capture: true,

@@ -37,8 +37,8 @@ test('play-stage gesture prevention preserves interactive controls',()=>{
   h.run("state.appMode='play'");
   listener(event({closest:()=>null}));assert.equal(prevented,1);
   listener(event({closest:()=>({parentElement:h.get('stageWrap')}),parentElement:h.get('stageWrap')}));assert.equal(prevented,1);
-  listener(event({closest:()=>({}),contains:()=>true},2));assert.equal(prevented,1);
-  h.run("state.appMode='edit'");listener(event({closest:()=>null}));assert.equal(prevented,1);
+  listener(event({closest:()=>({}),contains:()=>true},2));assert.equal(prevented,2);
+  h.run("state.appMode='edit'");listener(event({closest:()=>null}));assert.equal(prevented,2);
   assert.equal((h.context.document.listeners.get('pointerdown')||[]).some(fn=>String(fn).includes('e.isPrimary===false')),false);
 });
 
@@ -227,6 +227,33 @@ test('failed native fullscreen request falls back to the enlarged stage and can 
   assert.equal(h.get('stageWrap').classList.contains('playExpanded'),true);
   await h.run('requestLandscapeFullscreen()');
   assert.equal(h.get('stageWrap').classList.contains('playExpanded'),false);
+});
+
+test('Android gameplay requests real system fullscreen and locks landscape',async()=>{
+  const ua='Mozilla/5.0 (Linux; Android 13; Pixel 6) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36';
+  const h=createHarness(root,{userAgent:ua,maxTouchPoints:5}),wrap=h.get('stageWrap');
+  const calls=[];h.context.__androidFullscreenCalls=calls;
+  wrap.requestFullscreen=async options=>{calls.push(['request',options&&options.navigationUI]);h.context.document.fullscreenElement=wrap};
+  h.context.screen.orientation.lock=async mode=>calls.push(['lock',mode]);
+  h.context.document.exitFullscreen=async()=>{calls.push(['exit']);h.context.document.fullscreenElement=null};
+  await h.run('requestLandscapeFullscreen()');
+  assert.deepEqual(calls,[['request','hide'],['lock','landscape']]);
+  assert.equal(h.run('window.__gpGameplayFullscreenActive()'),true);
+  assert.equal(wrap.classList.contains('playExpanded'),false,'Android must not use CSS pseudo-fullscreen when native succeeds');
+  await h.run('requestLandscapeFullscreen()');
+  assert.equal(calls.some(call=>call[0]==='exit'),true);
+});
+
+test('Android native fullscreen blocks page gestures but keeps controls clickable',()=>{
+  const ua='Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/119 Mobile Safari/537.36';
+  const h=createHarness(root,{userAgent:ua,maxTouchPoints:5}),wrap=h.get('stageWrap');let prevented=0;
+  h.context.document.fullscreenElement=wrap;h.run("state.appMode='play'");
+  const guard=h.context.document.listeners.get('touchmove').find(fn=>String(fn).includes('wrap.contains'));
+  const event=target=>({target,touches:{length:1},preventDefault(){prevented++}});
+  guard(event({closest:()=>null}));assert.equal(prevented,1);
+  guard(event({closest:selector=>selector.includes('button')?{}:null}));assert.equal(prevented,1);
+  guard({target:{closest:selector=>selector.includes('button')?{}:null},touches:{length:2},preventDefault(){prevented++}});
+  assert.equal(prevented,2,'a second finger over a control cannot start a pinch');
 });
 
 test('player delay defaults to zero and migrates the historical 110ms setting',()=>{

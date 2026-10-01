@@ -1,6 +1,8 @@
 (()=>{
   const wrap=els.stageWrap;
   if(!wrap)return;
+  const nativeFullscreenToggle=requestLandscapeFullscreen;
+  const androidFullscreen=/Android/i.test(String(navigator.userAgent||''));
 
   // Ensure the old fullscreen HUD is back inside stageInner only if a prior patch moved it.
   // It remains hidden in the new enlarged mode, but restoring the DOM keeps normal edit mode intact.
@@ -46,8 +48,12 @@
   }
   window.__milSetExpanded=setExpanded;
 
-  // Replace the historical native-fullscreen/orientation-lock path.
-  requestLandscapeFullscreen=async function(){setExpanded(!wrap.classList.contains('playExpanded'))};
+  // Android uses the browser's real element fullscreen (the same system UI used by
+  // fullscreen video). Old iOS keeps the fixed overlay compatibility path.
+  requestLandscapeFullscreen=async function(){
+    if(androidFullscreen)return nativeFullscreenToggle();
+    setExpanded(!wrap.classList.contains('playExpanded'));
+  };
 
   // No double-tap pause on the playfield. Multi-touch releases must be reserved
   // exclusively for judgement input; pause remains an explicit UI action.

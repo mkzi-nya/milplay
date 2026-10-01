@@ -5,6 +5,7 @@ if(!wrap)return;
 const nativeElement=()=>document.fullscreenElement||document.webkitFullscreenElement||null;
 const isNative=()=>nativeElement()===wrap;
 const isFallback=()=>wrap.classList.contains('nativePlayFullscreen');
+const isAndroid=/Android/i.test(String(navigator.userAgent||''));
 // Safari 12 cannot evaluate the viewport min()/dvh sizing in the fullscreen CSS.
 const legacySizing=!window.CSS||!CSS.supports('width','min(100vw, 100dvh)');
 /* iOS 12 Safari reports 100vh larger than the visible area (toolbar) and cannot parse
@@ -101,16 +102,16 @@ function enterExpandedClass(){
 }
 async function enter(){
   window.__gpEscPauseGuardUntil=0;clearOldExpanded();wrap.classList.remove('nativePlayFullscreen','nativeLandscapeFallback');
-  /* Mobile (iOS 12 iPhone has no element fullscreen; iPad's is inconsistent) fills the
-     viewport with the CSS overlay path instead of the Fullscreen API. Desktop still
-     uses native fullscreen for a real monitor/OS fullscreen. */
+  /* Android supports element fullscreen like its video player. Keep iOS on the CSS
+     overlay path because old Mobile Safari has no reliable element fullscreen. */
   const coarse=(navigator.maxTouchPoints||0)>0||matchMedia?.('(pointer:coarse)')?.matches;
-  if(coarse||(!wrap.requestFullscreen&&!wrap.webkitRequestFullscreen)){enterExpandedClass();return}
+  if((coarse&&!isAndroid)||(!wrap.requestFullscreen&&!wrap.webkitRequestFullscreen)){enterExpandedClass();return}
   let nativeOk=false;
   try{if(wrap.requestFullscreen){await wrap.requestFullscreen({navigationUI:'hide'});nativeOk=isNative()}else if(wrap.webkitRequestFullscreen){await wrap.webkitRequestFullscreen();nativeOk=isNative()}}catch{}
   if(!nativeOk&&!isNative())enterExpandedClass();
   if(isNative())try{await navigator.keyboard?.lock?.(['Escape'])}catch{}
-  await unlockOrientation();
+  if(isNative()&&isAndroid){try{await screen.orientation?.lock?.('landscape')}catch{}}
+  else await unlockOrientation();
   syncDocumentLock();
   syncLegacySize();
   requestAnimationFrame(()=>{if(typeof markStageResize==='function')markStageResize();resizeCanvas();render()});
@@ -137,7 +138,7 @@ for(const type of ['gesturestart','gesturechange'])document.addEventListener(typ
 /* Two-finger touch is judgement input, never a page gesture. Block it early and keep
  * re-asserting scale 1 while it is down, because some iOS 12 builds begin the pinch
  * before the first touchmove reaches a non-passive listener. */
-function __milMultiTouchGuard(e){if(state.appMode!=='play'||!__milFullscreenLocked())return;if(!e.touches||e.touches.length<2)return;if(e.target?.closest?.('button, input, select, textarea, a, label'))return;if(typeof e.preventDefault==='function')e.preventDefault();resetVisualZoom()}
+function __milMultiTouchGuard(e){if(state.appMode!=='play'||!__milFullscreenLocked())return;if(!e.touches||e.touches.length<2)return;if(typeof e.preventDefault==='function')e.preventDefault();if(!isAndroid)resetVisualZoom()}
 document.addEventListener('touchstart',__milMultiTouchGuard,{capture:true,passive:false});
 document.addEventListener('touchmove',__milMultiTouchGuard,{capture:true,passive:false});
 })();

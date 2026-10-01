@@ -1893,6 +1893,12 @@ function __milPlayGestureGuard(e) {
   const wrap = els.stageWrap;
   const expanded = !!wrap && (wrap.classList.contains('playExpanded') || wrap.classList.contains('nativePlayFullscreen') || document.fullscreenElement === wrap || document.webkitFullscreenElement === wrap);
   if (!expanded && (!wrap || !wrap.contains(e.target))) return;
+  /* A second finger starting over a button must not turn the page into a pinch
+     gesture. Single-finger control taps still keep their native click event. */
+  if (e.touches && e.touches.length > 1) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    return;
+  }
   /* Preserve native click synthesis for the stage controls on iOS 12. */
   if ((_e$target = e.target) != null && _e$target.closest != null && _e$target.closest('button, input, select, textarea, a, label')) return;
   if (typeof e.preventDefault === 'function') e.preventDefault();
