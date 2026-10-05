@@ -7,6 +7,8 @@ const GP_WINDOWS={Exact:.035,Perfect:.070,Great:.105,Good:.140,Bad:.155};
 const GP_ACC={Exact:1,Perfect:1,Great:.6,Good:.3,Bad:.15,Miss:0};
 const GP_HIT_STATES=new Set(['Exact','Perfect','Great','Good']);
 const GP_STEP=1/120;
+// Full horizontal judgement width, measured in CSS pixels of the screen viewport.
+const GP_HIT_WIDTH_RATIO=1/6;
 // Keep the provisional timing window separate from the spatial hitbox width.
 const GP_LIGHTNING_WINDOW=.05;
 const GP_LIGHTNING_HIT_RATIO=.5;
@@ -121,7 +123,8 @@ function gpInverse(m){const det=m[0]*m[3]-m[1]*m[2],q=det===0?1e9:1/det;return[m
 function gpPoint(m,x,y){return{x:m[0]*x+m[2]*y+m[4],y:m[1]*x+m[3]*y+m[5]}}
 let gpStageRect=null,gpStageRectStamp=-1;
 function gpRefreshStageRect(){gpStageRect=els.stage.getBoundingClientRect();gpStageRectStamp=performance.now();return gpStageRect}
-function gpCanvasPoint(ev,refresh=false){const r=(refresh||!gpStageRect||performance.now()-gpStageRectStamp>1000)?gpRefreshStageRect():gpStageRect,rotated=els.stageWrap?.classList?.contains('nativeLandscapeFallback')&&matchMedia?.('(orientation:portrait)')?.matches,sx=clamp((ev.clientX-r.left)/Math.max(1,r.width),0,1),sy=clamp((ev.clientY-r.top)/Math.max(1,r.height),0,1);if(rotated)return{x:Math.trunc(sy*els.stage.width),y:Math.trunc((1-sx)*els.stage.height)};return{x:Math.trunc(sx*els.stage.width),y:Math.trunc(sy*els.stage.height)}}
+function gpCanvasRotated(){return !!(els.stageWrap?.classList?.contains('nativeLandscapeFallback')&&matchMedia?.('(orientation:portrait)')?.matches)}
+function gpCanvasPoint(ev,refresh=false){const r=(refresh||!gpStageRect||performance.now()-gpStageRectStamp>1000)?gpRefreshStageRect():gpStageRect,rotated=gpCanvasRotated(),sx=clamp((ev.clientX-r.left)/Math.max(1,r.width),0,1),sy=clamp((ev.clientY-r.top)/Math.max(1,r.height),0,1);if(rotated)return{x:Math.trunc(sy*els.stage.width),y:Math.trunc((1-sx)*els.stage.height)};return{x:Math.trunc(sx*els.stage.width),y:Math.trunc(sy*els.stage.height)}}
 function gpEventTime(ev){const base=gpInputTime(),stamp=Number(ev?.timeStamp),now=performance.now(),age=Number.isFinite(stamp)&&Math.abs(now-stamp)<10000?clamp(now-stamp,0,120):0;return clamp(base-age/1000*(Number(state.rate)||1),0,state.duration||0)}
 function gpInputTime(){
   if(!gpIsPlay())return Number(state.currentTime)||0;
@@ -130,22 +133,26 @@ function gpInputTime(){
   return Number(state.currentTime)||0;
 }
 function gpRelTouchPoint(t,n,touch){
-  if(touch.isKey)return{x:0,y:0,__screenXScale:1};
+  if(touch.isKey)return{x:0,y:0,__screenXScale:1,__cssXScale:1};
   const rt=state.runtime,w=els.stage.width,h=els.stage.height;
-  const posX=rt.lineValue(n.lineIdx,POS_X,t),posY=rt.lineValue(n.lineIdx,POS_Y,t),relX=rt.lineValue(n.lineIdx,REL_X,t),relY=rt.lineValue(n.lineIdx,REL_Y,t);
-  const lineCenterX=(posX+relX)/1920*w,lineCenterY=(posY+relY)/1080*h;
-  const lineSize=rt.lineValue(n.lineIdx,SIZE,t),lineRot=rt.lineValue(n.lineIdx,ROTATION,t);
+  const st=transformLine(rt,n.lineIdx,t,w,h);
+  const x=rt.noteValue(n,POS_X,t)+rt.noteValue(n,REL_X,t),y=(n.hasPosY?rt.noteValue(n,POS_Y,t):0)+rt.noteValue(n,REL_Y,t);
+  const anchor=applyLineWorld(st,w,h,x,y);
   const noteScale=rt.noteValue(n,SIZE,t),noteRot=rt.noteValue(n,ROTATION,t);
-  let m=gpMat();m=gpTranslate(m,lineCenterX,lineCenterY);m=gpScale(m,lineSize,lineSize);m=gpRotate(m,90-lineRot);m=gpScale(m,noteScale,noteScale);m=gpRotate(m,noteRot);
-  const centeredX=touch.x-w/2,centeredY=h/2-touch.y;
-  const p=gpPoint(gpInverse(m),centeredX,centeredY);p.__screenXScale=Math.max(1e-6,Math.hypot(m[0],m[1]));return p;
+  /* Match applyLineWorld's screen-space rotation and y-axis direction. Anchor the
+     box at the note's authored judgement position, not the falling head or line origin. */
+  let m=gpMat();m=gpTranslate(m,anchor.x,anchor.y);m=gpRotate(m,st.angle);m=gpScale(m,st.scale,-st.scale);m=gpScale(m,noteScale,noteScale);m=gpRotate(m,noteRot);
+  const p=gpPoint(gpInverse(m),touch.x,touch.y),r=(!gpStageRect||performance.now()-gpStageRectStamp>1000)?gpRefreshStageRect():gpStageRect;
+  p.__screenXScale=Math.max(1e-6,Math.hypot(m[0],m[1]));
+  const rotated=gpCanvasRotated(),cssW=rotated?r.height:r.width,cssH=rotated?r.width:r.height;
+  p.__cssXScale=Math.max(1e-6,Math.hypot(m[0]*cssW/w,m[1]*cssH/h));return p;
 }
+function gpScreenWidth(){return Number(window.visualViewport?.width)||Number(window.innerWidth)||document.documentElement.clientWidth||els.stage.width}
 function gpIsHit(t,n,touch){
-  const w=els.stage.width,h=els.stage.height,p=gpRelTouchPoint(t,n,touch),jw=485.99991/1920*w,jh=2202.27645/1080*h,jdy=772.32375/1080*h;
-  /* RainPlayer's desktop/source box remains 486/1920 wide. On coarse/mobile input,
-     enforce the requested lane width in SCREEN space: one judgement lane = 1/6
-     of the visible gameplay width, independent of line/note scale or rotation. */
-  const coarse=(navigator.maxTouchPoints||0)>0||matchMedia?.('(pointer:coarse)')?.matches,xOk=coarse?(Math.abs(p.x)*(p.__screenXScale||1)<=w/12):(-jw/2<=p.x&&p.x<=jw/2);
+  const h=els.stage.height,p=gpRelTouchPoint(t,n,touch),jh=2202.27645/1080*h,jdy=772.32375/1080*h;
+  /* Compare in visible CSS pixels, so letterboxing or a smaller canvas does not
+     shrink the interval. The complete width is screen/6, screen/12 on each side. */
+  const xOk=Math.abs(p.x)*(p.__cssXScale||1)<=gpScreenWidth()*GP_HIT_WIDTH_RATIO/2;
   return xOk&&-jh/2<=p.y-jdy&&p.y-jdy<=jh/2;
 }
 function gpGetNotes(t,touch=null){
@@ -191,9 +198,8 @@ function gpLightningHit(n,t,touch){
   const w=els.stage.width,h=els.stage.height,st=transformLine(gp.rt,n.lineIdx,t,w,h),f=__pluNoteFrame(gp.rt,n,t,st,w,h);
   if(!f)return false;
   const p=gpRelTouchPoint(t,n,touch),center=gpRelTouchPoint(t,n,{x:f.center.x,y:f.center.y});
-  const dx=p.x-center.x,dy=p.y-center.y,jw=485.99991/1920*w,jh=2202.27645/1080*h;
-  const coarse=(navigator.maxTouchPoints||0)>0||matchMedia?.('(pointer:coarse)')?.matches;
-  const xOk=coarse?Math.abs(dx)*(p.__screenXScale||1)<=w/12*GP_LIGHTNING_HIT_RATIO:Math.abs(dx)<=jw/2*GP_LIGHTNING_HIT_RATIO;
+  const dx=p.x-center.x,dy=p.y-center.y,jh=2202.27645/1080*h;
+  const xOk=Math.abs(dx)*(p.__cssXScale||1)<=gpScreenWidth()*GP_HIT_WIDTH_RATIO/2*GP_LIGHTNING_HIT_RATIO;
   return xOk&&Math.abs(dy)<=jh/2;
 }
 function gpLightningUpdate(t){

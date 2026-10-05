@@ -21,6 +21,8 @@
   };
   const GP_HIT_STATES = new Set(['Exact', 'Perfect', 'Great', 'Good']);
   const GP_STEP = 1 / 120;
+  // Full horizontal judgement width, measured in CSS pixels of the screen viewport.
+  const GP_HIT_WIDTH_RATIO = 1 / 6;
   // Keep the provisional timing window separate from the spatial hitbox width.
   const GP_LIGHTNING_WINDOW = .05;
   const GP_LIGHTNING_HIT_RATIO = .5;
@@ -333,10 +335,13 @@
     gpStageRectStamp = performance.now();
     return gpStageRect;
   }
-  function gpCanvasPoint(ev, refresh = false) {
+  function gpCanvasRotated() {
     var _els$stageWrap, _matchMedia;
+    return !!((_els$stageWrap = els.stageWrap) != null && (_els$stageWrap = _els$stageWrap.classList) != null && _els$stageWrap.contains('nativeLandscapeFallback') && matchMedia != null && (_matchMedia = matchMedia('(orientation:portrait)')) != null && _matchMedia.matches);
+  }
+  function gpCanvasPoint(ev, refresh = false) {
     const r = refresh || !gpStageRect || performance.now() - gpStageRectStamp > 1000 ? gpRefreshStageRect() : gpStageRect,
-      rotated = ((_els$stageWrap = els.stageWrap) == null || (_els$stageWrap = _els$stageWrap.classList) == null ? void 0 : _els$stageWrap.contains('nativeLandscapeFallback')) && (matchMedia == null || (_matchMedia = matchMedia('(orientation:portrait)')) == null ? void 0 : _matchMedia.matches),
+      rotated = gpCanvasRotated(),
       sx = clamp((ev.clientX - r.left) / Math.max(1, r.width), 0, 1),
       sy = clamp((ev.clientY - r.top) / Math.max(1, r.height), 0, 1);
     if (rotated) return {
@@ -368,46 +373,47 @@
     if (touch.isKey) return {
       x: 0,
       y: 0,
-      __screenXScale: 1
+      __screenXScale: 1,
+      __cssXScale: 1
     };
     const rt = state.runtime,
       w = els.stage.width,
       h = els.stage.height;
-    const posX = rt.lineValue(n.lineIdx, POS_X, t),
-      posY = rt.lineValue(n.lineIdx, POS_Y, t),
-      relX = rt.lineValue(n.lineIdx, REL_X, t),
-      relY = rt.lineValue(n.lineIdx, REL_Y, t);
-    const lineCenterX = (posX + relX) / 1920 * w,
-      lineCenterY = (posY + relY) / 1080 * h;
-    const lineSize = rt.lineValue(n.lineIdx, SIZE, t),
-      lineRot = rt.lineValue(n.lineIdx, ROTATION, t);
+    const st = transformLine(rt, n.lineIdx, t, w, h);
+    const x = rt.noteValue(n, POS_X, t) + rt.noteValue(n, REL_X, t),
+      y = (n.hasPosY ? rt.noteValue(n, POS_Y, t) : 0) + rt.noteValue(n, REL_Y, t);
+    const anchor = applyLineWorld(st, w, h, x, y);
     const noteScale = rt.noteValue(n, SIZE, t),
       noteRot = rt.noteValue(n, ROTATION, t);
+    /* Match applyLineWorld's screen-space rotation and y-axis direction. Anchor the
+       box at the note's authored judgement position, not the falling head or line origin. */
     let m = gpMat();
-    m = gpTranslate(m, lineCenterX, lineCenterY);
-    m = gpScale(m, lineSize, lineSize);
-    m = gpRotate(m, 90 - lineRot);
+    m = gpTranslate(m, anchor.x, anchor.y);
+    m = gpRotate(m, st.angle);
+    m = gpScale(m, st.scale, -st.scale);
     m = gpScale(m, noteScale, noteScale);
     m = gpRotate(m, noteRot);
-    const centeredX = touch.x - w / 2,
-      centeredY = h / 2 - touch.y;
-    const p = gpPoint(gpInverse(m), centeredX, centeredY);
+    const p = gpPoint(gpInverse(m), touch.x, touch.y),
+      r = !gpStageRect || performance.now() - gpStageRectStamp > 1000 ? gpRefreshStageRect() : gpStageRect;
     p.__screenXScale = Math.max(1e-6, Math.hypot(m[0], m[1]));
+    const rotated = gpCanvasRotated(),
+      cssW = rotated ? r.height : r.width,
+      cssH = rotated ? r.width : r.height;
+    p.__cssXScale = Math.max(1e-6, Math.hypot(m[0] * cssW / w, m[1] * cssH / h));
     return p;
   }
+  function gpScreenWidth() {
+    var _window$visualViewpor;
+    return Number((_window$visualViewpor = window.visualViewport) == null ? void 0 : _window$visualViewpor.width) || Number(window.innerWidth) || document.documentElement.clientWidth || els.stage.width;
+  }
   function gpIsHit(t, n, touch) {
-    var _matchMedia2;
-    const w = els.stage.width,
-      h = els.stage.height,
+    const h = els.stage.height,
       p = gpRelTouchPoint(t, n, touch),
-      jw = 485.99991 / 1920 * w,
       jh = 2202.27645 / 1080 * h,
       jdy = 772.32375 / 1080 * h;
-    /* RainPlayer's desktop/source box remains 486/1920 wide. On coarse/mobile input,
-       enforce the requested lane width in SCREEN space: one judgement lane = 1/6
-       of the visible gameplay width, independent of line/note scale or rotation. */
-    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia2 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia2.matches),
-      xOk = coarse ? Math.abs(p.x) * (p.__screenXScale || 1) <= w / 12 : -jw / 2 <= p.x && p.x <= jw / 2;
+    /* Compare in visible CSS pixels, so letterboxing or a smaller canvas does not
+       shrink the interval. The complete width is screen/6, screen/12 on each side. */
+    const xOk = Math.abs(p.x) * (p.__cssXScale || 1) <= gpScreenWidth() * GP_HIT_WIDTH_RATIO / 2;
     return xOk && -jh / 2 <= p.y - jdy && p.y - jdy <= jh / 2;
   }
   function gpGetNotes(t, touch = null) {
@@ -516,7 +522,6 @@
     gpUpdateAt(t);
   }
   function gpLightningHit(n, t, touch) {
-    var _matchMedia3;
     if (touch.isKey) return false;
     const w = els.stage.width,
       h = els.stage.height,
@@ -530,10 +535,8 @@
       });
     const dx = p.x - center.x,
       dy = p.y - center.y,
-      jw = 485.99991 / 1920 * w,
       jh = 2202.27645 / 1080 * h;
-    const coarse = (navigator.maxTouchPoints || 0) > 0 || (matchMedia == null || (_matchMedia3 = matchMedia('(pointer:coarse)')) == null ? void 0 : _matchMedia3.matches);
-    const xOk = coarse ? Math.abs(dx) * (p.__screenXScale || 1) <= w / 12 * GP_LIGHTNING_HIT_RATIO : Math.abs(dx) <= jw / 2 * GP_LIGHTNING_HIT_RATIO;
+    const xOk = Math.abs(dx) * (p.__cssXScale || 1) <= gpScreenWidth() * GP_HIT_WIDTH_RATIO / 2 * GP_LIGHTNING_HIT_RATIO;
     return xOk && Math.abs(dy) <= jh / 2;
   }
   function gpLightningUpdate(t) {
