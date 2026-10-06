@@ -1,275 +1,81 @@
-# Milthm 谱面播放器
+# Milplay
 
-纯前端、无运行时依赖安装的本地 Milthm **可玩播放器**。仓库包含已构建的兼容脚本，用静态 HTTP 服务器打开 `index.html`，在同一页面上传区导入谱面 / 图片 / 音频 / 压缩包，用 Canvas 2D 渲染，并提供游玩判定：`Exact / Perfect / Great / Good / Bad / Miss`、连击、分数、打击特效、自动游玩、结算页与视频导出。
+Milplay 是一个在浏览器中运行的 Milthm 谱面播放器。它不需要后端，支持桌面和移动端浏览器，可导入谱面、音乐、曲绘、Storyboard 以及 ZIP / 7z / `.milcht` 容器。
 
-手序（左右手）功能**已彻底移除**：中性贴图选择集中在 `js/performance/targeted.js`（`noteTextureKey`）。音符只按语义（类型 / AP / 同押）选择贴图，相关 DOM 与编辑器检查面板也已移除。
+## 功能
 
-## 运行方式
+- Canvas 2D 谱面渲染和 Storyboard 播放
+- Tap、Drag、Hold、Fracture / Lightning 判定
+- Exact、Perfect、Great、Good、Bad、Miss、连击和计分
+- 自动游玩、暂停/跳转、倍速、延迟校准、全屏和低内存模式
+- 结算页和 WebM 视频导出（浏览器支持时可用 MP4）
+- Milthm JSON、Milize JS、RWC JSON、ZIP、7z、`.milcht`
+- Safari 12 兼容构建，触摸输入和 iOS 12 回退布局
 
-需要静态 HTTP 服务，无后端、无依赖安装：
+## 使用
+
+项目必须通过 HTTP 打开。进入项目目录后运行：
+
+```sh
+npm start
+```
+
+然后访问 <http://127.0.0.1:8000/>。也可以使用任意静态 HTTP 服务器：
 
 ```sh
 python3 -m http.server 8000 --bind 127.0.0.1
-# 打开 http://127.0.0.1:8000/
 ```
 
-保留 `index.html`、`css/`、`compat/`、`assets/` 的相对目录关系。修改源码后执行 `npm run build:compat`；首次开发安装依赖可用 `npm install --bin-links=false`（适用于 Android 共享存储不支持符号链接的情况）。
+在页面中一次选择谱面和它的图片、音频；需要保留目录结构时，把资源放进 ZIP。播放时可以使用 `A-Z` 或空格输入，`Esc` 暂停，`Enter` 继续。
 
-播放/全屏行为以 `cc9170a`（2026-09-20）为基准：Android 游玩使用浏览器原生元素全屏，并尝试锁定横屏；iOS 12 保留页面内全屏。原生全屏不可用时回退为页面内全屏。网页可阻止自身的滚动、缩放等手势，但不能屏蔽 Android 系统级边缘导航手势。保留居中声明顺序的修正，避免画布移出左上角。
+## 开发
 
-兼容构建保留 Safari 12 语法转译、触摸输入、Blob 文件读取、离线 ZIP Deflate 解压与旧版 CSS 尺寸回退；ZIP 回退使用随构建附带的 fflate（MIT）。内置图片统一使用 WebP，因此需要支持 WebP 解码的浏览器；Safari 12 无法显示这些内置图片。媒体仍由系统解码，Ogg/Opus 等格式也受浏览器支持限制。
-
-- **必须通过 HTTP**。`file://` 下普通文件导入有时可用，但 Milize JS 依赖的沙箱 `<iframe srcdoc>`、Blob URL、媒体解码、按需 CDN 解压库通常会失败。
-- Milize JS 在 `sandbox="allow-scripts"` 的内联 iframe 中执行（非 Worker），需要浏览器允许 `eval` 与沙箱 iframe。
-- 7z 与 `.milcht` 的 zstd 条目按需从 jsDelivr 加载解压库；离线时请先解包再导入（`.milcht` 在无网络/无 `import()` 时会明确报“无法加载 zstd 解压库”，不会静默失败）。
-- **导入方式：在同一页面上传区一次多选**“谱面 + 图片 + 音频”，或直接拖入 ZIP / 7z。当前**没有**独立的“选择文件夹”入口（未启用 `webkitdirectory`）；需要保留相对路径时请打包为 ZIP。
-- 同一次上传会登记为一个资源批次，可在谱面已加载后**补传同名故事板图片**而不会误替换背景/音频。
-
-## 控件与键盘
-
-游玩模式（默认）下可见的控件：
-
-| 控件 | 说明 |
-| --- | --- |
-| 播放 / 暂停 | 有音频时以音频时钟为准 |
-| 画面暂停图标 | 灰色圆形底，随视口宽度在 28–42px 之间缩放；播放时需在原命中区域内连点两次（间隔不超过 1 秒），首次点击后出现外圈；暂停后显示圆形按钮菜单。已删除舞台中重复的 HTML 暂停按钮 |
-| 进度 | 底部进度条或时间输入框跳转 |
-| 暂停时拖动 | 暂停后可直接在**画面顶端白条**上拖动跳转；拖动期间暂停遮罩暂时消失，以便查看当前谱面（`js/ui/hud-progress.js`） |
-| 倍速 | `rate` 范围 `0.05–8`（受浏览器变速能力限制） |
-| 调整延迟 | 游玩设置位于画面和播放控件下方；点击按钮打开延迟浮窗，在浮窗中以毫秒输入。媒体时间 = `max(0, 谱面时间 + 延迟)`。四拍鼓点持续播放，第 4 拍是重拍；可点击或用字母、数字、空格键打拍，偏移值在 1 秒后消失 |
-| 音量 / 背景亮度 | 滑块 |
-| 全屏 | 原生全屏；不可用时回退为页面内固定全屏。未设置自定义比例时铺满屏幕；设置比例后按该比例居中显示 |
-| `1:1` | 重置暂停缩放 |
-| 自动游玩 | 开启后按谱面时间判定为 Exact，HUD 显示 AUTOPLAY |
-| 音符大小 / 流速 | `noteScale`（0.25–4）；流速下限 `0.1`、无上限，界面基准显示 `7.0`，对应播放器原有的 `flowSpeed=1.66` 渲染倍率，之后按比例调整。`milthm_unpack` 的 DLL 是方法空桩，无法从中验证其他数值与官方设置的完整换算关系 |
-| 导出视频 | 录制当前画布为 WebM（支持时 MP4） |
-
-倍速、延迟、音量、亮度、音符大小、流速、自动游玩、手部贴图和自定义比例保存在浏览器本地，刷新后恢复；低内存模式仍使用它原有的本地保存。谱面进度的自动保存与这些设置互不依赖。
-
-低内存档位（iOS 12 / 1 GB 设备）采用 **400 MiB 播放器预算**：其中最多 320 MiB 用于上传/解压后的谱面资源，约 80 MiB 预留给 WebKit、音频解码、DOM 和系统开销。这个预算是播放器主动限制资源缓存与导入大小的策略，不是浏览器能够提供的进程级硬内存上限；浏览器仍可能因为系统压力提前回收页面。该档位还把单张故事板采样限制为 768 px 长边、393K 像素，缓存最多保留 3 张故事板，上传历史最多保留当前及上一批资源。
-
-键盘：
-
-- 游玩中：`A`–`Z` 与 `Space` 是**位置无关的轨道输入**（手动游玩；开启自动游玩时无效）。
-- `Esc`：第一次暂停；结算显示时先关闭结算；暂停后再按退出游玩全屏。
-- `Enter`：暂停且无结算时恢复播放。
-- 当前版本**没有方向键绑定**（暂停进度条的键盘操作仅在滑条获得焦点时生效）。
-
-暂停后显示退出、重开、继续三个按钮。退出只在全屏时生效；继续会显示 3 秒倒计时，期间不显示暂停遮罩，倒计时结束后恢复播放。全屏右上角不再显示单独的缩小按钮。
-
-游玩时长条若漏接开头或中途松开而判为 Miss，其剩余可见部分会轻微偏红；自动游玩及正常长条不变。
-
-暂停按钮已有独立命中区域：当 `state.hudVisible=false` 时图标隐藏，原区域仍可点击、触摸和获得键盘焦点；字段未提供时默认可见。这只是暂停按钮对显隐状态的支持，**谱面控制 HUD 显隐尚未实现**。Algebra 的 beats1 阶段显隐研究仍阻塞：现有谱面、参考 WASM 与本地 DLL 桩不足以确定真实触发规则，没有按文件名、不透明度或臆测层序添加规则。证据与 3 个未满足的 TODO 验收见 [HUD 调查](tests/hud-investigation.md)。
-
-## 支持的输入格式与限制
-
-文件按扩展名分流（不区分大小写）。`accept` 只是选择器提示，能选中不代表内容一定受支持。
-
-| 类别 | 扩展名 | 实际行为 |
-| --- | --- | --- |
-| 标准 JSON | `.json`、`.milthm`、`.tjson`、`.txt` | `BPMList`/`NoteList` 结构，按 `FormatVersionCode` 校验与归一化 |
-| 开发 JSON | `.json`、`.txt` | `lines[].notes` / `bpms` / `animations` / `storyboardObjects` |
-| Milize JS | `.js`、`.mjs`、`.cjs` | 在沙箱 iframe 执行并转 JSON；失败后回退静态 TJSON 扫描（不执行脚本） |
-| 容器 | `.milcht` | 读取文件表，提取文本谱面、音频与可识别的图片 |
-| 图片 | `.png/.jpg/.jpeg/.avif/.webp`（另识别 gif/bmp/svg） | 背景与故事板，取决于浏览器解码 |
-| 媒体 | `.ogg/.opus/.mp3/.wav/.flac/.m4a/.aac/.mp4/.webm/.mov` | 由浏览器媒体解码器播放音轨 |
-| 压缩包 | `.zip`、`.7z` | 解包后继续分流，可嵌套 |
-
-**标准 JSON（`normalizeMilthm`，`js/core/base.js`）**：`FormatVersionCode` 必须为 `0–9` 整数；`BPMList`、`NoteList` 必须是数组；轨道数取 `LineCount`，缺失回退 `LineList.length`；v1–6 从 BPM 起始时间扣除 `SongOffset`，v7+ 忽略非零 `SongOffset` 并告警；时间戳支持 `[拍,分子,分母(,bpmId)]` 或 `null` + `FromTime/ToTime`；动画 `Data` 0/1/2、`Key` 0–23、`Press` 0–15、`Ease` 0–2；含 `judgeLineList` 的 RWC JSON 只做部分字段映射；校验失败直接报错，不静默改写（AP 非布尔一律按 `false` 处理，是唯一例外）。
-
-**Milize JS 桥（`milizeJsToJson`，`js/core/base.js`）**：沙箱内提供全局 `MilizeBeatmap`（以及 `m`）的 `timing`、`line`、`note`、`animation`、`storyboardObject`、`withProperty`、`withoutProperty`、`env`，以及 `tap/drag/hold/exTap/fake…` 辅助函数与枚举。所有方法都 `bind` 到同一实例，并显式暴露到 `globalThis`/`window`，因此：
-
-- 打包 / 压缩后的谱面（任意别名，如 `var L=MilizeBeatmap,ul=L.timing;`）可以直接引用全局 `MilizeBeatmap`；
-- 方法被解绑保存后单独调用（如 `var u0=n0.timing; u0(...)`）仍能写入同一实例；
-- 链式调用（`MilizeBeatmap.withProperty("k","v").note(...)`）也受支持。
-
-解析超时为自适应 **4–60 秒**（`4000 + 源码长度×0.025 ms`，上限 60s）。它不是完整游戏 SDK：`stage.width/height` 现在返回实际舞台 CSS 尺寸，独立于 DPR；屏幕尺寸和用户大小／流速也注入环境。窗口变化后重新执行 JS 以更新谱面自己的比例补偿，保留原 `time` 种子；音符身份和时间没有变化时保留已经记录的判定与触点。若谱面根据屏幕尺寸生成了不同音符，则按当前时间重新建立游玩状态。JSON 或从本地自动保存恢复的谱面没有 JS 源码，不重新生成。桥接失败后回退 `staticTjson` 静态扫描。该桥已用 **382 个真实谱面验证 382/382 成功解析**。
-
-**`.milcht`**：解析文件表，取 `chart-data`/`chart`/`beatmap`/`raw-chart-data` 文本条目、音频与可识别的图片；zstd 条目按需从 jsDelivr 导入 `fzstd@0.1.1`，回退 `zstddec@0.2.0`。不支持游戏内部二进制谱面缓存。
-
-**压缩**：
-
-| 输入 | 依赖与限制 |
-| --- | --- |
-| ZIP | 内置目录解析；Store 直接读取，Deflate 优先 `DecompressionStream`，不支持时使用随页面附带的 fflate；其余压缩方法/加密/分卷条目会被跳过 |
-| 7z | 按需从 jsDelivr 加载 `libarchive.js@2.1.0` 及 Worker；受网络与 CSP 影响 |
-| milcht zstd | 按需从 jsDelivr 导入 `fzstd@0.1.1`，回退 `zstddec@0.2.0` |
-
-## 判定、分数与结果
-
-### 判定窗口（`js/gameplay/controller.js`）
-
-- 窗口：Exact <35ms、Perfect <70ms、Great <105ms、Good <140ms、Bad <155ms，否则为 Miss。按偏移绝对值从最小窗口开始判断，正好落在边界会落到更差的一档。
-- `isAlwaysPerfect`（AP）：偏移在 Good 窗口内（`<140ms`）命中即 Exact，否则 Miss。
-- 参与普通判定的只有类型 0（Tap/Hold）与类型 1（Drag）；Hold 头尾各计一次。类型 2（Fracture/Lightning）单独判定，不增加普通音符数或普通判定次数。
-- Tap、Drag 与 Hold 头部的横向判定区间总宽度为当前可见屏幕（浏览器视口）宽度的 **1/6**，即 note 判定位置中心左右各 **1/12**，边界包含在内。按 CSS 像素计算，不使用画布宽度：视口宽 1200px 时，即使画布只显示 600px 宽，总判定宽度仍为 200px。鼠标、触控笔与触屏采用相同范围；范围随音符横轴旋转，并跟随 note 的位置偏移，但不随判定线／音符缩放、显示音符大小或画布分辨率变化。Hold 命中后的持续判定仍采用水面反射机制。此处按所需规则统一，替换 [RainPlayerUnity 的旧 `485.99991/1920` 判定框](https://github.com/qaqFei/RainPlayerUnity/blob/5e7310830f65b99f9bbe067e8b8f268ec3aa5ae8/Assets/Scripts/MilPlayment.cs#L69)，不将其他播放器的实现当作原版空间判定的证明。
-- 闪电有独立的通过／触雷统计；Fake 闪电只渲染，自动游玩按时间通过，跳转和重开会重建状态。闪电的空间判定框以其中心为准，沿判定线横向的宽度是普通音符的一半，纵向范围不变；指针触雷才显示 `lightning2.png` 特效。键盘输入始终不会触雷；未触雷的闪电到达判定线时立即消失。原 DLL 判定方法为空桩，当前保留 **提前 50 ms** 的兼容碰撞窗口，接触判定线后不再判触雷。不能将该兼容行为视为原版判定完全一致。
-- 普通音符的打击环和粒子固定在命中瞬间判定线上的落点；Hold 的持续粒子随判定线移动。切换画布尺寸后按新尺寸重算落点。密集段使用稳定的粒子抽样以限制每帧绘制量。
-- 游玩时被判定的非 Hold 音符立即从画面消失；Hold 保留到自身结束。未判定的音符和编辑模式仍遵守谱面可见性。
-- 手动输入来自指针（支持多指、`pointerrawupdate`）与 `A`–`Z`/`Space`；自动游玩按时间轴顺序判定为 Exact。
-- 固定步进 120 Hz；前向卡顿时最多执行 12 步，然后单次扫过跳过的区间补判 Miss，避免主线程死循环。
-
-### 计分（独立模块 `js/scoring/score.js`）
-
-计分算法参考 `/storage/emulated/0/.ck/mkzi/mkzi-nya.github.io/mil/index.html` + `app.js`（及 `score_search_engine.wasm`），并移植为纯函数模块 `MilScore`。
-
-- 判定权重 `scoreMap` 为百万整数：`e:1000000, p:990000, g:600000, n:300000, b:150000, m:0`。
-- 连击分档封顶（`js/scoring/score.js:6-11`）：`bMax`（基础连击上限 `min(192, max(⌊N·12/50⌋,1))`）、`gCap`、`nCap`、`bCap`、`mCap`。Exact 每步 +2、Perfect +1 累加到 `cur`，封顶 `bMax`；Great/Good 把 `cur` 压到对应 cap，Bad/Miss 归零。另有 `prevLoss` 补偿，保证中途断连后的过程分与参考实现逐行一致。
-- 闪电血条初始为 256；每次触雷扣 64，不足部分从热度 `cur` 扣除，最低为 0。Exact 为闪电血条和热度各回 2，Perfect 各回 1，分别封顶 256 和 `bMax`。闪电扣热度会影响后续音符的连击分贡献；两条血条只在内部参与记分，不显示在游玩 HUD 或结算页。
-- **过程分**（`process(st)`）：`⌊acc/N·(0.4+0.6·procCombo/(n·bMax))⌋ + ⌊5000·maxCombo/N⌋ + ⌊(allEP?5000·n/N:0)⌋`。其中 `N` 始终为**整谱判定数**（不是已判定前缀长度），`n` 为已判定数，`procCombo` 为过程连击累计，`allEP` 表示到目前为止只有 Exact/Perfect。HUD 实时显示该过程分。
-- **结算分**（`final(st)`）：`⌊acc/N·(0.4+0.6·finalCombo/(N·bMax))⌋ + ⌊5000·maxCombo/N⌋ + (allEP?5000:0)`。`finalCombo` 在末尾连击未满时按 `calc_final_from_totals` 做尾部修正。
-- HUD 用增量游标（`score.cursor()`）只读取新增判定，空闲帧不重算；结算时对未判定音符补 Miss 的只是副本，不会污染 HUD。
-- 无触雷时，全 Exact 满分 **1,010,000**、全 Perfect 满分 **1,000,000**（由 `tests/score.test.cjs` 对 377 音符序列断言）。
-
-### HUD 连击文案（`score.label`）
-
-| 条件 | 文案 |
-| --- | --- |
-| 自动游玩 | `AUTOPLAY` |
-| 手动且未出现 Perfect 以下判定 | `ALL PERFECT` |
-| 出现 Great/Good 但无 Bad/Miss | `FULL COMBO` |
-| 出现 Bad 或 Miss | `COMBO` |
-
-### 结算页
-
-结算布局参考 `参宿四.png`：左上重开与曲名／难度，左侧曲绘，右侧评级／分数／判定条，右上固定 `user`、`REALITY 114.514`；不显示底部基本／详细切换。评级规则来自查分器 `milkloud.js`：R ≥1,010,000，M ≥1,000,000，SS ≥950,000，S ≥850,000，A ≥750,000，B ≥650,000，C ≥600,000，否则 F。图标与 AP/FC 变体取自查分器本地资源，判定条显示 PERFECT 总数（Exact 数）及 GOOD 总数（Great 数）。没有历史最佳记录时不伪造截图中的分数增量。
-
-- 结算页（`js/results/page.js`）在歌曲结束或音频 `ended` 时显示，列出分数、准确率以及分组后的 PERFECT（Exact+Perfect）、GOOD（Great+Good）、BAD/MISS，可重开；结果页挂载在舞台内（`js/results/stage.js`），全屏与旋转时保持位置。
-- 视频导出（`js/export/video.js`）用 `MediaRecorder` + `canvas.captureStream(60)` 录制当前画布 backing-store 分辨率，包含 HUD/特效、不含 DOM 控件；音频轨来自媒体元素的 `captureStream`（若可用）。
-
-## 资源与故事板匹配
-
-- **背景**：优先 `IllustrationFile`（别名 `illustrationFile`/`background`）；缺失时在包内按 `illustration/background/cover/bg` 命名挑选，再取排序后第一张图；多图且无指定时不擅自选择并给出警告。
-- **音频**：优先 `AudioFile`（别名 `audioFile`/`music`）；缺失时按 `audio/music/song/bgm` 命名挑选，否则取排序后第一首。
-- **故事板**：存在 `storyboard/` 或 `storyboards/` 目录时该目录优先，按同 basename 解析（`foo.asset` / `foo.meta` 会映射到同名图片，`.asset/.meta` 不会直接交给 `<img>`）。
-- **路径归一化**：反斜杠、URI 解码、Unicode NFC；先精确路径（有冲突则跳过），再大小写不敏感（仅唯一时），最后仅在 basename 唯一时回退；有歧义时给出诊断而非乱选。
-- **上传批次库**：每个用户上传批次独立登记。解析顺序为“从新到旧”，采用**第一个在该批次内唯一命中的**文件；若最新批次对某个键有歧义，会**跳过该键并继续向更早批次回退**，绝不返回任意重复项。批次内先后顺序与包内解析一致：精确路径 → 精确 basename → 大小写不敏感路径 → 折叠名。
-- **对象 URL 生命周期**：资源与故事板 blob URL 都登记在可枚举的表中；加载新谱面/资源时 `__milRevokePackageAssets` 会同时释放这些 URL 并清空故事板缓存，避免跨包泄漏（`js/render/algebra-storyboard.js` 已协调该路径）。
-- **内置图元**：`builtin.rect` / `builtin.round_rect` / `builtin.line` 程序化生成；`builtin.tap` 等复用玩法贴图。内置贴图统一使用 PNG，以兼容旧版 iOS Safari。
-- **故事板默认透明度为 0**，显式动画决定其显示。`靈.zip` 的第二个 `builtin.line` 没有动画，旧默认值 1 导致中央多出白线；已用本地 MilLune WASM 对照确认其默认 alpha 为 0，并保留第一个对象的动画。原始 ZIP 无需修改。
-
-## 渲染顺序
-
-`RENDER_LAYER_ORDER`（`js/core/base.js`）与 `js/render/port.js` 的参考顺序为：
-
-```text
-illustration -> storyboard layer 0 -> black mask -> storyboard layer 1
--> line -> hold -> tap -> drag/fracture -> storyboard layer 2 -> combo -> distorted storyboard
-```
-
-游玩模式最终生效的是 `js/render/effects.js` 的 `render`（被 `js/gameplay/controller.js` 捕获为 `gpRenderBase`，再由 `js/results/page.js` 包一层）。前景顺序已对照 Pluviora 修正：
-
-```text
-背景 -> storyboard layer 0 -> 背景调暗 -> storyboard layer 1
--> 打击特效 -> 音符 -> 判定线 -> storyboard layer 2 -> HUD -> 变形故事板
-```
-
-layer 2 不再被错误地画到音符下面；判定线在音符之后合成，note 到达终点时线会从其上方穿过。该修复不会自动隐藏 HUD：Pluviora 的前景之后仍绘制 HUD，且其图片故事板支持不完整，不能据此宣称完整还原游戏。Algebra 在 45–49 秒的背景 black 已覆盖全屏，但谱面 alpha 为 0.5；beats1 图片大部分透明，因此这两者不会自然合成为纯黑并抹去 HUD。没有将 alpha 强改为 1，也没有按图片名隐藏 UI。原游戏额外显隐事件仍待恢复，见 [调查记录](tests/hud-investigation.md)。
-
-## 模块一览与加载顺序
-
-普通全局脚本，不是 ES Module。`index.html` 必须先有 DOM，再按固定顺序加载；脚本间存在“后加载覆盖先加载”的补丁链，**不要重排、不要加 `async`/`defer`**。
-
-```text
-js/assets/builtin-sources -> js/core/base -> js/assets/requested-textures -> js/render/port
--> render/effects -> render/hit-ring -> app/mode-build
--> ui/* -> package/loader -> scoring/score -> gameplay/controller
--> assets/rain-textures -> render/storyboard -> runtime/*
--> render/algebra-storyboard -> performance/* -> results/* -> export/video -> settings/player
-```
-
-| 文件 | 职责 |
-| --- | --- |
-| `js/assets/builtin-sources.js` | 内置贴图路径映射 |
-| `js/core/base.js` | DOM/状态、时间轴与缓动、`normalizeMilthm`/RWC、`makeRuntime`/`precompute`、资源解析、解包、Milize JS 沙箱桥、基础渲染与内置自检、上传/本地恢复、空值保护 |
-| `js/assets/requested-textures.js` | 语义贴图选择、上传资源批次库与歧义回退、同名故事板补齐 |
-| `js/render/port.js` | 参考实现兼容层（`referenceMode`）：缓动/积分、事件编译与分桶索引、线/音符几何、参考渲染顺序、`__renderPortSelfTest` |
-| `js/render/effects.js` | 自定义缓动数组、活动桶索引、游玩模式合成顺序、HUD |
-| `js/render/hit-ring.js` | `hit_ring` 的 Canvas2D 移植、粒子参数与贴图策略、着色环缓存 |
-| `js/app/mode-build.js` | 模式构建版本标记（占位） |
-| `js/ui/hud-progress.js` | 暂停时画面顶端白条进度控件（`createHudProgress`，提供 `sync()`） |
-| `js/ui/play-controls.js` | 音符大小/流速控件同步、接入并同步 `hudProgress` |
-| `js/ui/hud-pause.js` | 小双白线暂停按钮、触摸双击、独立命中区域与显隐状态同步；不提供谱面 HUD 显隐规则 |
-| `js/ui/play-enlarged.js` | 页面内放大/缩小的全屏回退模式 |
-| `js/package/loader.js` | ZIP 结构识别、资源匹配、故事板目录解析、最终 `loadFiles` |
-| `js/scoring/score.js` | 纯计分模块 `MilScore`：`create/extend/process/final/snapshot/calculate/cursor/label`，参考 `mil/app.js` + WASM |
-| `js/gameplay/controller.js` | 游玩判定、分数/连击/准确率、自动游玩、指针/键盘输入、HUD、120Hz 固定步进；`window.calculateScore=MilScore.calculate` |
-| `js/assets/rain-textures.js` | 内置 Hold 头/体/尾与兜底贴图数据 |
-| `js/render/storyboard.js` | 故事板按图层缓存与绘制（中间层） |
-| `js/runtime/fullscreen.js` | 原生全屏、方向锁定、固定全屏回退 |
-| `js/runtime/mobile-continuity.js` | 系统/全屏挂起后恢复媒体播放 |
-| `js/render/algebra-storyboard.js` | Algebra 专项：颜色按通道插值、故事板游标、原始纹理尺寸、故事板下采样、blob URL 回收协调 |
-| `js/performance/targeted.js` | 中性 `noteTextureKey`、着色缓存切片、活动音符索引、故事板内尺寸修正、状态 UI、最终默认状态、`__targetedReviewSelfTest` |
-| `js/results/page.js` | 结算页 DOM 与显示/隐藏/重开、`__scoreResultSelfTest` |
-| `js/results/keyboard.js` | 结算与暂停的 `Esc`/`Enter` 处理 |
-| `js/results/stage.js` | 把结算页挂载进舞台内部 |
-| `js/export/video.js` | `MediaRecorder` + `captureStream` 视频导出 |
-| `js/runtime/ios12.js` | iOS 12 Touch/Pointer 兼容和旧版浏览器能力补齐 |
-| `js/runtime/stage-environment.js` / `stage-ratio.js` | 舞台尺寸、比例和环境变量同步 |
-| `js/performance/low-memory.js` / `targeted.js` | 低内存开关、贴图采样、活动音符索引和渲染缓存 |
-| `js/ui/pause-menu.js` / `delay-calibration.js` | 暂停菜单和音频延迟校准 |
-
-`render/algebra-storyboard.js` 的 “Algebra” 指的是一组真实 Algebra 谱面使用的 Storyboard 语义，不是另一个播放器。它补上参考播放器与普通故事板之间的差异：RGBA 颜色按通道插值、重叠事件按正确游标取值、保留原始图片几何尺寸、低内存时使用采样纹理，并让包内 Blob URL 能在换谱面时回收。该补丁在普通谱面上也保持透明旁路，因此不需要单独的 Algebra 模式开关。
-
-旧的数字前缀文件名已全部移除；加载顺序只由 `index.html` 的显式脚本列表决定，不再依赖文件名排序。
-
-## 稳健性与回归修复
-
-- 游玩模式不再包含编辑/检查/难度面板；`js/core/base.js` 对已移除元素（如 `restoreBar`、`infoAutosave` 等）的读取与事件绑定都加了 `?.` / `if(els.x)` 保护，即使元素缺失，加载、播放与结算仍不抛错。
-- 故事板对象 URL 之前存在跨包泄漏（私有 `WeakMap` 无法被 `__milRevokePackageAssets` 枚举）；现改为可枚举表并在同一回收路径中释放、同步清空 `storyCache`，新包加载不会复用失效 URL。
-- 上传资源歧义解析由“最新批次歧义即返回 null”改为“跳过歧义键、回退到更早唯一批次”，与注释和包内解析语义一致。
-
-## 移动端与性能
-
-- 游玩画布 DPR 为 `min(devicePixelRatio, 2)`，再按总像素 **4,147,200（4.1472MP）** 缩放并向下取整，不因触屏或重谱降低该预算。编辑模式保留原有分档：触屏重谱 1、轻量 1.25；桌面重谱 1.5、轻量 2。重谱判定为「音符 >2500 或故事板 >100」。
-- 故事板由 09 提供共享取样策略，09 的 URL/包资源路径和 15 的最终 loader 均调用 `window.__milSampleStoryboard`：**长边不超过 2560、每张总像素不超过 4,147,200**，等比缩小后向下取整（最短边至少 1），不放大小图。4096×2304 现保留为 2560×1440（原触屏重谱为 1024×576）；8192×8192 取样为 2036×2036。原图几何尺寸单独保存在 `sourceWidth/sourceHeight`，最终渲染仍按原尺寸计算布局。
-- 图片仍按需加载，不预先解码全部故事板；缓存不随 DPR/窗口变化反复解码，换包继续清空缓存并回收 object URL。下采样后释放缓存中的原图引用，已有 WebP 文件不转换、不重编码。普通背景继续直接绘制原图，受益于提高后的画布 DPR；上述单张取样预算不限制普通背景的原始解码尺寸。
-- 着色临时画布（`__milTintSlice`）按目标 backing pixels 与可用纹理尺寸取样，上限为 1,048,576 像素、长边 4096，白色直接绘制。着色故事板仍可能受此独立预算限制。
-- 命中环缓存按设备画像取样：普通设备最多 256×256 的 60 个进度掩码；低内存/iOS 12 使用 128×128，并把着色副本限制为 12 张，运行中切换低内存模式会主动清空并重建缓存。
-- 活动音符使用区间树，每个音符仅存一个节点，倒放可查询；取消固定 30 秒提前窗口，避免低速、反向或定位动画音符提前出现时被漏绘。普通判定按 0.25 秒分桶，超过约 64 秒的 Hold 单独索引，特效也采用相同的长 Hold 策略，避免内存随持续时间增长。
-- 同一时间的判定线属性复用计算结果；Note 创建顺序去重使用 Set；动画轨道通过预编译的转移边界二分查询，支持重叠事件和任意方向跳转；表达式函数缓存限制为 512 个。
-- 图片故事板支持 14–21 号四角坐标动画，以两个裁剪三角形绘制，保留原层次、颜色和负缩放；非变形图片仍走原快速路径。VisibleArea 使用谱面坐标默认值，Speed 按规范线性积分，扩展缓动 11–15 不再被强制截成 Bounce。
-- `hit_ring` 着色环按 `textureIndex:color` 键缓存（`__plu100TintedRings`，上限 180 项）；粒子对密集拖键做步长抽稀（`__pluParticleStride`）；HUD 文本按画布宽度缩放。
-- 游玩渲染上限 60 Hz（`now-__playLastRender>=15.5`）；**暂停时不重绘**（静态场景不占用主线程与电量）；DOM 控件文本写入限 15 Hz。
-- **这些只是降低开销的工程措施，不承诺任何机型或帧率**。复杂故事板、超大压缩包、密集动画、ZIP/JSON 解析与运行时构建仍可能长时间占用主线程。**本仓库没有手机性能数据，也不保证手机 FPS**；已有验证是逻辑/导入层面，不是真机帧率测量。
-- 取样预算限制的是单张缓存纹理，不是整包总内存；浏览器首次加载仍可能完整解码原图，再生成采样画布。多张大图、高 DPR、背景原图和着色缓冲会增加内存与绘制成本；极端放大、超长宽比仍可能模糊，尚无真机画质/峰值内存测量。
-
-## 验证
-
-静态语法检查（无需额外依赖）：
+要求 Node.js 20+。安装依赖并生成 Safari 12 兼容目录：
 
 ```sh
-for f in js/*.js; do node --check "$f" || exit 1; done
+npm install
+npm run build
 ```
 
-仓库内测试（Node 内置 `node:test`，无需安装依赖）：
+常用命令：
 
-| 命令 | 覆盖内容 |
+| 命令 | 作用 |
 | --- | --- |
-| `node --test tests/score.test.cjs` | 以 `mil/app.js` + `score_search_engine.wasm` 为独立 oracle，逐行比对每个前缀的 `process`、各内部状态（`len/acc/procCombo/cur/combo/maxCombo/prevLoss`）与最终结算分；覆盖大批量、游标批量追加/重开/前后跳转/模式切换、稠密追加只读新增判定、以及 `gameplay/controller.js`+`performance/targeted.js`+结算页的真实接线（HUD 文案、百万单位准确率、结算隔离、AUTOPLAY） |
-| `node --test tests/bridge-assets.test.cjs` | 按 `index.html` 顺序加载全部脚本的 DOM/Canvas 伪环境：脚本链可运行、`prepare/seek/render`、已移除标识（`ensureDiffModel`/`normHand`/`assign_hands`）不存在、真实谱面（默认 `Drizzle_Autumn Rain.js`、`Cloudburst_Algebra.js`）解析与运行时数量一致、拖键语义、贴图缓存区分手动 Good、资源 URL 身份/回收、取消选择不登记批次等 |
-| `node --test tests/milize-bridge.test.cjs` | Milize JS 沙箱桥接契约（短别名/全名/全局 `MilizeBeatmap`/解绑调用/链式/env/`_note_create_order`）、对打包谱面的识别、超时与上下文隔离、以及真实谱面有界分层抽样（默认 10 个）与指定回归样本（`Sprinkle_Regnaissance.js`、`Cloudburst_Threat - Metropolis.js`、`Cloudburst_Threat - Sky Islands.js`）的解析成功率与数量一致 |
-| `node --test hud-progress.test.cjs` | 暂停进度白条的指针拖动比例（含原生竖屏旋转与 CSS 缩放的坐标映射）、越界钳制、捕获/释放、播放时禁用、次级触摸与鼠标右键不能夺走、播放/外部跳转/换谱/换模式结束拖动、键盘方向键/翻页/端点、HTML 接线与 CSS 规则（并断言全仓库不含旧 `fsProgress` 标识） |
+| `npm start` | 在本地启动静态服务器 |
+| `npm run build` | 生成 `compat/` 兼容版本 |
+| `npm run check` | 检查所有源码 JavaScript 语法 |
+| `npm test` | 运行 Node 测试套件 |
+| `npm run test:benchmark` | 运行本地数据结构基准测试 |
 
-页面内置自检钩子（通过 HTTP 打开后，在控制台执行）：
+源码使用普通全局脚本，不是 ES Module。`index.html` 中的脚本顺序是运行时依赖的一部分，修改时请保持顺序。目录职责和加载关系见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 
-| 钩子 | 内容 |
-| --- | --- |
-| `window.__milthmFullRenderSelfTest()` | 主套件：旧兼容 + 参考渲染 + 请求贴图行为 |
-| `window.__renderPortSelfTest()` | 参考缓动/积分、事件游标、自定义缓动、VisibleArea 默认值 |
-| `window.__plu100PatchSelfTest()` | 贴图语义、hit-ring 遮罩、粒子分布 |
-| `window.__scoreResultSelfTest()` | 分数算法（全 Exact=1,010,000、全 Perfect=1,000,000、判定映射） |
-| `window.__targetedReviewSelfTest()` | 装饰假音符索引、内置图元尺寸、默认状态、手序开关与旧按钮确实已移除 |
-| `window.__algebraStoryboardReviewSelfTest()` | RGBA 通道插值、`builtin.line` 尺寸、故事板游标、有界取样（横/竖/方形/细线/小图/无效尺寸）、通过最终渲染器验证采样后仍使用原图几何 |
-| `window.__milthmSemanticSelfTest()` | 旧版语义自检。**已知陈旧的失效断言共 9 条**（参考渲染取代旧语义所致），仅作历史参考，不要据此修改 `js/core/base.js` |
+## 目录
 
-**测试限制**：以上测试均为 Node `vm` + 伪造 DOM/Canvas，或页面内逻辑自检，只验证 JS 契约、结构数量与算法正确性；**不做浏览器/手机实测**，不验证像素、真实媒体解码、原生触摸投递或帧率。`tests/harness.js` 是按 `index.html` 顺序加载脚本链的共享测试骨架。
-
-本次有界取样与 geometry 回归断言位于 15 的现有自检中，由 `tests/quality.test.cjs` 调用。可单独运行：
-
-```sh
-node --test --test-name-pattern='original semantics' tests/quality.test.cjs
-node --test tests/*.test.cjs tests/*.test.mjs hud-progress.test.cjs
+```text
+assets/        内置音符、特效和评级图片
+css/           页面和播放控件样式
+js/            播放器源码
+compat/        面向 Safari 12 的构建产物
+scripts/       构建脚本
+tests/         Node 回归测试
+docs/          架构与来源说明
 ```
 
-2026-09-18 更新后的完整测试结果：81 项中 **78 通过、0 普通失败、3 TODO**。旧的故事板取样期望已更新为 2560×1440。新增回归覆盖暂停图标尺寸与重复按钮删除、真实 PNG 黑幕覆盖和透明度、前景顺序。3 个 TODO 是尚未实现的 HUD 显隐验收，不能算通过。测试使用 Node、实际图片解码及参考 WASM；本轮没有浏览器视觉或真实手机帧率测量。
+`compat/` 是生成目录，不要直接修改；修改 `js/` 或 `css/` 后重新运行 `npm run build`。
+
+## 来源与许可
+
+运行时依赖、构建工具和外部代码参考见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+
+- `fflate`：页面内 ZIP Deflate 回退，随兼容构建发布，MIT。
+- `@babel/core` 和 `@babel/preset-env`：只用于生成 Safari 12 兼容代码，不进入浏览器运行时。
+- `RainPlayerUnity`：普通音符判定和坐标变换的代码参考。
+- `Pluviora`：游玩渲染层顺序的代码参考。
+
+第三方项目的版权和许可归原作者所有；内置图片和音符素材的授权以其原始发布者说明为准。
+
+## 限制
+
+- 浏览器必须支持 Canvas、Blob URL、音频播放和所导入媒体格式。
+- 7z 和 `.milcht` 的部分压缩数据需要联网加载解压模块；离线时请先解包，或改用 ZIP。
+- 测试覆盖解析、计分和渲染逻辑，不等同于所有浏览器、设备和媒体格式的兼容性保证。

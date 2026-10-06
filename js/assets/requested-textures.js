@@ -1,5 +1,5 @@
-/* Requested texture/resource behavior patch — 2026-08-06. */
-const __MIL_REQUESTED_PATCH_VERSION='2026-08-06-ex-normal-and-uploaded-story-assets-v1';
+/* Texture selection and uploaded-resource lookup rules. */
+const __MIL_REQUESTED_VERSION='ex-normal-and-uploaded-story-assets-v1';
 
 /* Every expanded user upload is retained as one session-local asset batch.  The
  * newest batch that contains an unambiguous exact same-name file wins.  This lets a
@@ -99,5 +99,5 @@ window.__milthmFullRenderSelfTest=async function(){
     ok(__milResolveUploadedAssetFile('fallthrough.png')===older,'歧义新批次未回退到更早的唯一批次（仍错误返回 null）');
     ok(__milResolveUploadedAssetFile('req-new-a/fallthrough.png')===dupA,'新批次内唯一路径未被解析');
   }catch(e){failures.push(e?.stack||String(e))}
-  return{...result,ok:failures.length===0,requestedPatch:__MIL_REQUESTED_PATCH_VERSION,failures};
+  return{...result,ok:failures.length===0,requestedPatch:__MIL_REQUESTED_VERSION,failures};
 };

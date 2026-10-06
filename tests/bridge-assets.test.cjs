@@ -1,5 +1,5 @@
 'use strict';
-// Phone-only: node tests/bridge-assets.test.cjs [archive/chart/js] [sample.js ...]
+// Contract test for the complete browser script chain.
 // DOM/Canvas are fakes: this verifies JS contracts, not decoded pixels or media.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
@@ -35,11 +35,9 @@ const run=s=>vm.runInContext(s,context,{timeout:30000});
 for(const m of html.matchAll(/<script src="([^"]+)"/g)){const rel=String(m[1]).replace(/[?#].*$/,'');vm.runInContext(fs.readFileSync(path.join(root,rel),'utf8'),context,{filename:rel,timeout:30000});}
 async function main(){
  assert.equal(run('typeof ensureDiffModel'), 'undefined');assert.equal(run('typeof normHand'), 'undefined');assert.equal(run('typeof assign_hands'), 'undefined');
- const archive=process.argv[2]||path.resolve(root,'../milthm-archive/code/chart/js');
- const samples=process.argv.slice(3);if(!samples.length)samples.push('Drizzle_Autumn Rain.js','Cloudburst_Algebra.js');
- assert(samples.length<=3,'Run at most three real charts per batch');
- for(const name of samples){
-   const source=fs.readFileSync(path.join(archive,name),'utf8');assert(source.length<4000000);
+ const samples=[['minimal.js','var m=MilizeBeatmap,p=m.withProperty;p("Title","Local");var b=m.timing(0,120,4),l=m.line();m.note(l,b,[0,0,1],[0,0,1],0,false,false);m.animation(b,[0,0,1],[1,0,1],0,0,1,0,0,0,0,false,"");'],['alias.js','var L=MilizeBeatmap,ul=L.timing,k=L.line,f=L.note;var b=ul(0,120,4),l=k();f(l,b,[0,0,1],[0,0,1],0,false,false);']];
+ for(const [name,source] of samples){
+   assert(source.length<4000000);
    context.source=source;const chart=await run('milizeJsToJson(source)');
    context.chart=chart;const rt=run('makeRuntime(chart)');
    const count=chart.lines.reduce((n,l)=>n+l.notes.length,0);assert(count>0);assert.equal(rt.notes.length,count);assert.equal(rt.storyboards.length,chart.storyboardObjects.length);

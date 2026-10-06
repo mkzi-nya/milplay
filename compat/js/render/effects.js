@@ -160,8 +160,7 @@ render = function () {
     ctx.scale(state.viewScale, state.viewScale);
     const lineStates = [];
     for (let li = 0; li < rt.lineCount; li++) lineStates.push(transformLine(rt, li, sec, w, h));
-    /* Layer order follows Pluviora src/pluviora.cpp:2139-2153 (MIT): foreground
-       follows gameplay, then HUD. Picture rendering itself is absent in Pluviora. */
+    /* Foreground storyboard layer follows gameplay and precedes the HUD. */
     drawStoryboardLayer(rt, 0, sec, w, h);
     drawBackgroundDim(w, h);
     drawStoryboardLayer(rt, 1, sec, w, h);

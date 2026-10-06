@@ -1,8 +1,7 @@
 (()=>{
 'use strict';
-/* RainPlayerUnity-compatible ordinary-note gameplay.  MilPlayment.cs in the supplied
- * project implements Hit/Drag/Hold only. Fracture/Lightning uses a separate
- * collision path and drains the score's lightning reserve on contact. */
+/* Ordinary Hit/Drag/Hold gameplay follows the RainPlayerUnity model. Fracture/Lightning
+ * uses a separate collision path and drains the score's lightning reserve on contact. */
 const GP_WINDOWS={Exact:.035,Perfect:.070,Great:.105,Good:.140,Bad:.155};
 const GP_ACC={Exact:1,Perfect:1,Great:.6,Good:.3,Bad:.15,Miss:0};
 const GP_HIT_STATES=new Set(['Exact','Perfect','Great','Good']);

@@ -1,6 +1,5 @@
 /*
  * Rendering compatibility and optimization layer.
- * Source snapshot: main @ 18b1b929c655143b0e1f549d1025271726dd1cb3
  *
  * MIT License
  * Copyright (c) 2026 jiangyin14

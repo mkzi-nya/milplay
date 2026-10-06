@@ -1497,7 +1497,7 @@ async function decompressZstdBytes(u8) {
       } catch (e) {
         errors.push(e && e.message ? e.message : String(e));
       }
-      throw new Error('无法加载 zstd 解压库。请保持网络可访问 jsDelivr，或先用 unpack_milcht.py 解包。' + (errors.length ? '\n' + errors.join('\n') : ''));
+      throw new Error('无法加载 zstd 解压库。请保持网络可访问 jsDelivr，或先解包。' + (errors.length ? '\n' + errors.join('\n') : ''));
     })();
   }
   const z = await zstdModulePromise;
@@ -1673,7 +1673,7 @@ function flattenArchiveTree(x, out, path = '') {
     for (const [k, v] of Object.entries(x)) flattenArchiveTree(v, out, path ? path + '/' + k : k);
   }
 }
-async function extract7z(file) {
+async function extract7z(file, budgetRemaining = Infinity) {
   try {
     var _window$Archive;
     if (!window.Archive) {
@@ -1684,22 +1684,36 @@ async function extract7z(file) {
     });
     const archive = await window.Archive.open(file),
       out = [];
+    let expanded = 0;
+    const add = entry => {
+      if (!entry || !entry.file) return;
+      const name = entry.pathname || entry.path || entry.file.name,
+        size = Math.max(0, Number(entry.file.size) || 0);
+      if (out.length >= 4096) throw new Error('7z 内条目超过 4096 个，已停止解压');
+      if (expanded + size > budgetRemaining) throw new Error(`压缩包展开后将超过 ${Math.round(__MIL_LOW_MEMORY_UPLOAD_BUDGET_BYTES / 1024 / 1024)} MiB 资源预算，已停止解压`);
+      expanded += size;
+      out.push(new File([entry.file], name, {
+        type: entry.file.type || mimeForName(name)
+      }));
+    };
     if (archive.extractFiles.length) {
-      await archive.extractFiles(entry => {
-        if (entry && entry.file) out.push(new File([entry.file], entry.pathname || entry.path || entry.file.name, {
-          type: entry.file.type || mimeForName(entry.pathname || entry.path || entry.file.name)
-        }));
-      });
+      await archive.extractFiles(add);
     }
     if (!out.length) {
       const tree = await archive.extractFiles();
       flattenArchiveTree(tree, out);
+      if (out.length > 4096) throw new Error('7z 内条目超过 4096 个，已停止解压');
+      expanded = out.reduce((sum, item) => sum + Math.max(0, Number(item.size) || 0), 0);
+      if (expanded > budgetRemaining) throw new Error(`压缩包展开后将超过 ${Math.round(__MIL_LOW_MEMORY_UPLOAD_BUDGET_BYTES / 1024 / 1024)} MiB 资源预算，已停止解压`);
     }
     if (!out.length) throw new Error('7z 内没有可读取文件');
     return out;
   } catch (e) {
     throw new Error('7z 解压失败：需要浏览器能访问 libarchive.js；' + (e.message || e));
   }
+}
+async function extract7zBounded(file, budgetRemaining = Infinity) {
+  return extract7z(file, budgetRemaining);
 }
 async function requestLandscapeFullscreen() {
   const el = els.stageWrap;
@@ -1974,11 +1988,7 @@ try {
   requestAnimationFrame(tick);
 })();
 
-/* Milthm semantic review patch — 2026-08-06
- * This block intentionally overrides the earlier compatibility implementation.
- * It keeps the UI/editor code intact while making time, animation and note rendering
- * follow the supplied Milthm v9/Beatmap.js semantics more closely.
- */
+/* Canonical Milthm timing, animation, and note-rendering rules. */
 const __MIL_NOTE_EQUAL_EPS = 0.001;
 const __MIL_VALID_ANIMATION_KEYS = new Map([[BEARER_LINE, new Set([POS_X, POS_Y, TRANSPARENCY, SIZE, ROTATION, FLOW, REL_X, REL_Y, LINE_BODY_ALPHA, LINE_HEAD_ALPHA, SPEED, WHOLE_ALPHA, COLOR, VISIBLE_AREA])], [BEARER_NOTE, new Set([POS_X, POS_Y, TRANSPARENCY, SIZE, ROTATION, FLOW, REL_X, REL_Y, COLOR])], [BEARER_SB, new Set([POS_X, POS_Y, TRANSPARENCY, SIZE, ROTATION, REL_X, REL_Y, SB_WIDTH, SB_HEIGHT, SB_LB_X, SB_LB_Y, SB_RB_X, SB_RB_Y, SB_LT_X, SB_LT_Y, SB_RT_X, SB_RT_Y, COLOR])]]);
 
@@ -2730,7 +2740,7 @@ function milizeJsToJson(text, environment = null) {
     }
     function onmsg(ev) {
       const d = ev.data || {};
-      if (d.token !== token) return;
+      if (ev.source !== iframe.contentWindow || d.token !== token) return;
       d.ok ? done(true, d.chart) : done(false, null, new Error(d.error || 'JS 转 JSON 失败'));
     }
     window.addEventListener('message', onmsg);
@@ -3425,14 +3435,8 @@ window.__milthmSemanticSelfTest = async function () {
   };
 };
 
-/* ===== FULL RENDER REVIEW PATCH ===== */
-
-/* Milthm complete-render review patch — 2026-08-06
- * Completes the ranges intentionally left outside the earlier Note/Line review:
- * package resource resolution, canonical chart selection, legacy LineList defaults,
- * storyboard picture/text/color/layer/vertex rendering, and semantic texture priority.
- */
-const __MIL_FULL_REVIEW_VERSION = '2026-08-06.3';
+/* Package resolution, storyboard rendering, legacy defaults, and texture priority. */
+const __MIL_RENDER_VERSION = '2026-08-06.3';
 const __MIL_ASSET_SAVE_KEY = SAVE_KEY + '_render-assets-v1';
 
 /* The old UI shipped with an unexplained 110 ms media offset.  Beatmap times and audio
@@ -3605,7 +3609,7 @@ async function expandInputFiles(input) {
       report.push('zip 解包：' + f.name + '（' + sub.length + ' 个文件）');
       queue.push(...sub);
     } else if (/\.7z$/i.test(f.name)) {
-      const sub = await extract7z(f);
+      const sub = await extract7zBounded(f, Math.max(0, retainedBudget - retainedBytes));
       report.push('7z 解包：' + f.name + '（' + sub.length + ' 个文件）');
       queue.push(...sub);
     } else if (MILCHT_RE.test(f.name)) {
@@ -4145,7 +4149,7 @@ window.__milthmFullRenderSelfTest = async function () {
   }
   return {
     ok: failures.length === 0,
-    version: __MIL_FULL_REVIEW_VERSION,
+    version: __MIL_RENDER_VERSION,
     failures
   };
 };

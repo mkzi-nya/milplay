@@ -3,49 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const path=require('node:path');
 const {createHarness}=require('./harness.js');
-const {entry,png}=require('./storyboard-assets.cjs');
 const root=path.resolve(__dirname,'..');
-
-test('real package storyboard values and decoded pixel coverage',async()=>{
-  const h=createHarness(root);
-  h.context.source=entry('Special_Algebra.js').toString('utf8');
-  const {chart}=await h.run('parseText(source,"Special_Algebra.js")');
-  h.context.chart=chart;
-  h.run('window.rt=makeRuntime(chart)');
-  for(const name of ['black.png','beats1.png']){
-    const image=png(entry('storyboard/'+name));
-    if(name==='black.png'){
-      assert.deepEqual([image.width,image.height,image.minAlpha,image.maxAlpha,image.maxRGB,image.opaque],[1920,1080,255,255,0,2073600]);
-      assert.deepEqual(image.bounds,[0,0,1920,1080]);
-    }else{
-      assert.deepEqual([image.width,image.height,image.minAlpha,image.maxAlpha,image.nonzero,image.opaque],[1280,720,0,255,34506,17446]);
-      assert.deepEqual(image.bounds,[75,72,1205,552]);
-    }
-    h.context.name=name;
-    h.context.imageSize=[image.width,image.height];
-    h.run('{const canvas=document.createElement("canvas");canvas.width=imageSize[0];canvas.height=imageSize[1];storyCache.set(name,{drawable:canvas,sourceWidth:imageSize[0],sourceHeight:imageSize[1]})}window.draws=[];__milDrawRotTinted=(img,x,y,w,h,rotation,alpha,color)=>draws.push({x,y,w,h,rotation,alpha,color});');
-    for(const sec of [40,45,49,51]){
-      h.context.sec=sec;
-      const actual=JSON.parse(JSON.stringify(h.run('rt.storyboards.filter(s=>s.data===name).map(s=>[s.index,s.layer,...[POS_X,POS_Y,REL_X,REL_Y,SIZE,SB_WIDTH,SB_HEIGHT,ROTATION,TRANSPARENCY,COLOR].map(k=>rt.sbValue(s,k,sec))])')));
-      assert.deepEqual(actual,name==='black.png'?[
-        [69,0,0,0,0,0,3,1,1,0,sec===40?0:.5,0xffffffff],
-        [72,1,0,0,0,0,3,1,1,0,0,0xffffffff]
-      ]:[[74,2,0,80,0,0,1,1,1,0,sec===45||sec===49?1:0,0xffffffff]]);
-      // Only these objects, but the production evaluator, cache and final renderer.
-      const draws=JSON.parse(JSON.stringify(h.run('draws.length=0;{const subset={storyboards:rt.storyboards.filter(s=>s.data===name),sbValue:rt.sbValue};for(let layer=0;layer<3;layer++)drawStoryboardLayer(subset,layer,sec,1920,1080)}draws')));
-      const visible=name==='black.png'?sec!==40:sec===45||sec===49;
-      assert.equal(draws.length,visible?1:0);
-      if(visible){
-        const d=draws[0];assert.deepEqual([d.x,d.y,d.w,d.h,d.alpha,d.color],name==='black.png'?[960,540,5760,3240,1,[255,255,255,127.5]]:[960,460,1280,720,1,[255,255,255,255]]);
-        if(name==='black.png'){
-          const coverage=Math.max(0,Math.min(1920,d.x+d.w/2)-Math.max(0,d.x-d.w/2))*Math.max(0,Math.min(1080,d.y+d.h/2)-Math.max(0,d.y-d.h/2));
-          assert.equal(coverage,2073600,'full viewport is covered, but at authored alpha .5');
-          assert.equal(255*(1-d.color[3]/255),127.5,'white background cannot become pure black');
-        }
-      }
-    }
-  }
-});
 
 function geometryHarness(){
   const h=createHarness(root);

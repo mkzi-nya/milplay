@@ -4,8 +4,7 @@
   const nativeFullscreenToggle=requestLandscapeFullscreen;
   const androidFullscreen=/Android/i.test(String(navigator.userAgent||''));
 
-  // Ensure the old fullscreen HUD is back inside stageInner only if a prior patch moved it.
-  // It remains hidden in the new enlarged mode, but restoring the DOM keeps normal edit mode intact.
+  // Keep the fullscreen controls inside stageInner so edit mode retains its normal layout.
   const inner=document.getElementById('stageInner');
   for(const node of [wrap.querySelector(':scope > .fsLeft'),wrap.querySelector(':scope > .corner')]){
     if(node&&inner&&node.parentElement===wrap)inner.appendChild(node);
@@ -60,7 +59,7 @@
 
   window.addEventListener('resize',()=>{if(wrap.classList.contains('playExpanded'))resync()},{passive:true});
   window.addEventListener('orientationchange',()=>{if(wrap.classList.contains('playExpanded'))resync()},{passive:true});
-  // If a browser restored a stale native fullscreen state from an older build, leave it cleanly.
+  // Leave any stale native fullscreen state before enabling the enlarged stage.
   if(document.fullscreenElement||document.webkitFullscreenElement){
     try{(document.exitFullscreen?.()||document.webkitExitFullscreen?.())?.catch?.(()=>{})}catch{}
   }

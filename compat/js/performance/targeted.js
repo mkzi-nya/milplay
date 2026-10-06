@@ -1,7 +1,7 @@
 (_els$showHandsToggle => {
   'use strict';
 
-  const __TARGET_PATCH = '2026-08-13-algebra-background-review-v7';
+  const __TARGET_VERSION = 'algebra-background-v7';
 
   /* ---------------- UI state / status ---------------- */
   state.__playShowHands = false;
@@ -373,12 +373,8 @@
     }
   };
 
-  /* Algebra's anomaly sections have no schema-level HUD animation.  The supplied game
-   * recording and chart do, however, agree on the authored foreground `beats*.png`
-   * cards: while one is visible, the native player hides combo / score / progress and
-   * the pause glyph.  Treat this as an authored cinematic marker rather than a chart
-   * title, black-image, or arbitrary opacity heuristic.  It also covers beats1–4 and
-   * beats1-answer without changing normal opaque storyboards. */
+  /* Authored foreground `beats*.png` cards are cinematic markers: while one is visible,
+   * hide the gameplay HUD. Other foreground storyboards keep normal HUD behavior. */
   function __targetHudVisible(rt, sec) {
     if (!rt || state.appMode !== 'play') return true;
     for (const sb of rt.storyboards || []) {
@@ -550,8 +546,7 @@
     __targetPrecompute(rt);
     __targetRebuildActiveIndex(rt);
   };
-  /* Re-index the already loaded chart too, because this patch is appended after initial
-     function definitions and can also be injected into a live review page. */
+  /* Re-index a chart that was loaded before the performance index was installed. */
   if (state.runtime) __targetRebuildActiveIndex(state.runtime);
 
   /* Default landing state. Editor still keeps its always-visible hand annotations, while
@@ -621,7 +616,7 @@
     }
     return {
       ok: !failures.length,
-      version: __TARGET_PATCH,
+      version: __TARGET_VERSION,
       failures
     };
   };

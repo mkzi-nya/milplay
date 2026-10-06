@@ -301,7 +301,7 @@ function guessMediaNameFromBytes(u8,base='audio-data'){if(bytesStartsWith(u8,[0x
 function guessImageNameFromBytes(u8,base='image-data'){if(bytesStartsWith(u8,[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]))return base+'.png';if(bytesStartsWith(u8,[0xff,0xd8,0xff]))return base+'.jpg';if(bytesStartsWith(u8,[0x47,0x49,0x46,0x38]))return base+'.gif';if(bytesStartsWith(u8,[0x42,0x4d]))return base+'.bmp';if(bytesStartsWith(u8,[0x52,0x49,0x46,0x46])&&decodeUtf8Bytes(u8.slice(8,12))==='WEBP')return base+'.webp';if(decodeUtf8Bytes(u8.slice(4,8))==='ftyp'&&/avif|heic/i.test(decodeUtf8Bytes(u8.slice(8,32))))return base+'.avif';if(/^\s*(?:<svg[\s>]|<\?xml[\s\S]*<svg[\s>])/i.test(decodeUtf8Bytes(u8.slice(0,512))))return base+'.svg';return null}
 function guessTextNameFromBytes(u8,base='chart-data'){const head=decodeUtf8Bytes(u8.slice(0,2048)).trimStart();if(head.startsWith('{')||head.startsWith('['))return base+'.json';if(/^(var|let|const|function)\s/.test(head)||head.includes('MilizeBeatmap'))return base+'.js';return base+'.txt'}
 let zstdModulePromise=null;
-async function decompressZstdBytes(u8){if(!isZstdBytes(u8))return u8;if(!zstdModulePromise){zstdModulePromise=(async()=>{const errors=[];try{const mod=await import('https://cdn.jsdelivr.net/npm/fzstd@0.1.1/+esm');if(mod&&typeof mod.decompress==='function')return{kind:'fzstd',mod}}catch(e){errors.push(e&&e.message?e.message:String(e))}try{const mod=await import('https://cdn.jsdelivr.net/npm/zstddec@0.2.0/+esm');if(mod&&mod.ZSTDDecoder){const decoder=new mod.ZSTDDecoder();await decoder.init();return{kind:'zstddec',decoder}}}catch(e){errors.push(e&&e.message?e.message:String(e))}throw new Error('无法加载 zstd 解压库。请保持网络可访问 jsDelivr，或先用 unpack_milcht.py 解包。'+(errors.length?'\n'+errors.join('\n'):''))})()}const z=await zstdModulePromise;if(z.kind==='fzstd')return z.mod.decompress(u8);return z.decoder.decode(u8)}
+async function decompressZstdBytes(u8){if(!isZstdBytes(u8))return u8;if(!zstdModulePromise){zstdModulePromise=(async()=>{const errors=[];try{const mod=await import('https://cdn.jsdelivr.net/npm/fzstd@0.1.1/+esm');if(mod&&typeof mod.decompress==='function')return{kind:'fzstd',mod}}catch(e){errors.push(e&&e.message?e.message:String(e))}try{const mod=await import('https://cdn.jsdelivr.net/npm/zstddec@0.2.0/+esm');if(mod&&mod.ZSTDDecoder){const decoder=new mod.ZSTDDecoder();await decoder.init();return{kind:'zstddec',decoder}}}catch(e){errors.push(e&&e.message?e.message:String(e))}throw new Error('无法加载 zstd 解压库。请保持网络可访问 jsDelivr，或先解包。'+(errors.length?'\n'+errors.join('\n'):''))})()}const z=await zstdModulePromise;if(z.kind==='fzstd')return z.mod.decompress(u8);return z.decoder.decode(u8)}
 async function extractMilcht(file){const buf=await file.arrayBuffer(),u8=u8FromArrayBuffer(buf),parsed=parseMilchtFileTable(buf),table=parsed.table||{},entries=table.files||{},out=[],report=[];let meta=null;if(entries.meta){const mb=milchtEntryBytes(u8,parsed.dataStart,'meta',entries.meta);if(mb&&mb.length){try{meta=JSON.parse(decodeUtf8Bytes(mb));const title=meta.IdentifierSongName||meta.Title||meta.name,composer=meta.IdentifierComposerName||meta.Composer||meta.music_artist,diff=meta.Difficulty||meta.difficulty_name,charter=meta.Charter||meta.Beatmapper;report.push('milcht 元数据：'+[title,composer,diff,charter].filter(Boolean).join(' / '))}catch{report.push('milcht 元数据：读取成功，但不是 JSON')}}}
 const chartNames=['chart-data','chart','beatmap','raw-chart-data'];let chartAdded=false;for(const name of chartNames){if(!entries[name])continue;let bytes=milchtEntryBytes(u8,parsed.dataStart,name,entries[name]);if(!bytes||!bytes.length)continue;if(isZstdBytes(bytes)){setStatus('正在解压 milcht 谱面…','warn');bytes=await decompressZstdBytes(bytes)}const decodedHead=decodeUtf8Bytes(bytes.slice(0,4096));if(decodedHead.trimStart().startsWith('{')||decodedHead.includes('MilizeBeatmap')||/\b(var|let|const)\s+/.test(decodedHead)){const outName=guessTextNameFromBytes(bytes,name);out.push(new File([bytes],outName,{type:mimeForName(outName)}));report.push('milcht 谱面：'+safeMilchtEntryName(name)+(isZstdBytes(milchtEntryBytes(u8,parsed.dataStart,name,entries[name]))?'（zstd 已解压）':''));chartAdded=true;break}}
  const audioKey=Object.keys(entries).find(name=>/^(?:audio-data|audio|music|song|bgm)$/i.test(String(name)));if(audioKey){const ab=milchtEntryBytes(u8,parsed.dataStart,audioKey,entries[audioKey]);if(ab&&ab.length){const audioName=guessMediaNameFromBytes(ab,audioKey);out.push(new File([ab],audioName,{type:mimeForName(audioName)}));report.push('milcht 音频：'+audioName)}}
@@ -312,7 +312,10 @@ async function inflateRaw(data){if('DecompressionStream' in window&&Blob.prototy
 async function extractZip(file,budgetRemaining=Infinity){const buf=await file.arrayBuffer(),dv=new DataView(buf),u8=new Uint8Array(buf);let eocd=-1;for(let i=u8.length-22;i>=0&&i>u8.length-66000;i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break}}if(eocd<0)throw new Error('zip 结构无效：'+file.name);const entries=dv.getUint16(eocd+10,true),cdOff=dv.getUint32(eocd+16,true),out=[];let p=cdOff,expanded=0;for(let ei=0;ei<entries;ei++){if(dv.getUint32(p,true)!==0x02014b50)break;const flag=dv.getUint16(p+8,true),method=dv.getUint16(p+10,true),compSize=dv.getUint32(p+20,true),expandedSize=dv.getUint32(p+24,true),nameLen=dv.getUint16(p+28,true),extraLen=dv.getUint16(p+30,true),commentLen=dv.getUint16(p+32,true),lhOff=dv.getUint32(p+42,true);const name=decodeZipName(u8.slice(p+46,p+46+nameLen),(flag&0x800)!==0);p+=46+nameLen+extraLen+commentLen;if(!name||name.endsWith('/'))continue;if(dv.getUint32(lhOff,true)!==0x04034b50)continue;expanded+=Math.max(0,expandedSize);if(expanded>budgetRemaining)throw new Error(`压缩包展开后将超过 ${Math.round(__MIL_LOW_MEMORY_UPLOAD_BUDGET_BYTES/1024/1024)} MiB 资源预算，已停止解压`);const ln=dv.getUint16(lhOff+26,true),le=dv.getUint16(lhOff+28,true),dataStart=lhOff+30+ln+le,comp=u8.slice(dataStart,dataStart+compSize);let data;if(method===0)data=comp.buffer.slice(comp.byteOffset,comp.byteOffset+comp.byteLength);else if(method===8)data=await inflateRaw(comp);else continue;out.push(new File([data],name,{type:mimeForName(name)}))}if(!out.length)throw new Error('zip 内没有可读取文件：'+file.name);return out}
 function loadExternalScript(src){return new Promise((resolve,reject)=>{if([...document.scripts].some(s=>s.src===src))return resolve();const el=document.createElement('script');el.src=src;el.async=true;el.onload=resolve;el.onerror=()=>reject(new Error('无法加载外部解压库'));document.head.appendChild(el)})}
 function flattenArchiveTree(x,out,path=''){if(!x)return;if(x instanceof File){out.push(new File([x],path||x.name,{type:x.type||mimeForName(path||x.name)}));return}if(x.file instanceof File){out.push(new File([x.file],path||x.file.name,{type:x.file.type||mimeForName(path||x.file.name)}));return}if(typeof x==='object'){for(const [k,v] of Object.entries(x))flattenArchiveTree(v,out,path?path+'/'+k:k)}}
-async function extract7z(file){try{if(!window.Archive){await loadExternalScript('https://cdn.jsdelivr.net/npm/libarchive.js@2.1.0/dist/libarchive.js')}if(window.Archive?.init)window.Archive.init({workerUrl:'https://cdn.jsdelivr.net/npm/libarchive.js@2.1.0/dist/worker-bundle.js'});const archive=await window.Archive.open(file),out=[];if(archive.extractFiles.length){await archive.extractFiles(entry=>{if(entry&&entry.file)out.push(new File([entry.file],entry.pathname||entry.path||entry.file.name,{type:entry.file.type||mimeForName(entry.pathname||entry.path||entry.file.name)}))})}if(!out.length){const tree=await archive.extractFiles();flattenArchiveTree(tree,out)}if(!out.length)throw new Error('7z 内没有可读取文件');return out}catch(e){throw new Error('7z 解压失败：需要浏览器能访问 libarchive.js；'+(e.message||e))}}
+async function extract7z(file,budgetRemaining=Infinity){try{if(!window.Archive){await loadExternalScript('https://cdn.jsdelivr.net/npm/libarchive.js@2.1.0/dist/libarchive.js')}if(window.Archive?.init)window.Archive.init({workerUrl:'https://cdn.jsdelivr.net/npm/libarchive.js@2.1.0/dist/worker-bundle.js'});const archive=await window.Archive.open(file),out=[];let expanded=0;const add=(entry)=>{if(!entry||!entry.file)return;const name=entry.pathname||entry.path||entry.file.name,size=Math.max(0,Number(entry.file.size)||0);if(out.length>=4096)throw new Error('7z 内条目超过 4096 个，已停止解压');if(expanded+size>budgetRemaining)throw new Error(`压缩包展开后将超过 ${Math.round(__MIL_LOW_MEMORY_UPLOAD_BUDGET_BYTES/1024/1024)} MiB 资源预算，已停止解压`);expanded+=size;out.push(new File([entry.file],name,{type:entry.file.type||mimeForName(name)}))};if(archive.extractFiles.length){await archive.extractFiles(add)}if(!out.length){const tree=await archive.extractFiles();flattenArchiveTree(tree,out);if(out.length>4096)throw new Error('7z 内条目超过 4096 个，已停止解压');expanded=out.reduce((sum,item)=>sum+Math.max(0,Number(item.size)||0),0);if(expanded>budgetRemaining)throw new Error(`压缩包展开后将超过 ${Math.round(__MIL_LOW_MEMORY_UPLOAD_BUDGET_BYTES/1024/1024)} MiB 资源预算，已停止解压`)}if(!out.length)throw new Error('7z 内没有可读取文件');return out}catch(e){throw new Error('7z 解压失败：需要浏览器能访问 libarchive.js；'+(e.message||e))}}
+async function extract7zBounded(file,budgetRemaining=Infinity){
+  return extract7z(file,budgetRemaining);
+}
 async function requestLandscapeFullscreen(){const el=els.stageWrap;if(!el)return;if(!document.fullscreenElement){await (el.requestFullscreen?.()||el.webkitRequestFullscreen?.());try{await screen.orientation?.lock?.('landscape')}catch{}el.classList.add('landscapeFallback')}else{try{await screen.orientation?.unlock?.()}catch{}await (document.exitFullscreen?.()||document.webkitExitFullscreen?.());el.classList.remove('landscapeFallback')}}
 let __playLastRender=0,__playLastUI=0;
 function tick(now){
@@ -381,11 +384,7 @@ try{new ResizeObserver(()=>{markStageResize();resizeCanvas();render()}).observe(
 
 
 
-/* Milthm semantic review patch — 2026-08-06
- * This block intentionally overrides the earlier compatibility implementation.
- * It keeps the UI/editor code intact while making time, animation and note rendering
- * follow the supplied Milthm v9/Beatmap.js semantics more closely.
- */
+/* Canonical Milthm timing, animation, and note-rendering rules. */
 const __MIL_NOTE_EQUAL_EPS = 0.001;
 const __MIL_VALID_ANIMATION_KEYS = new Map([
   [BEARER_LINE, new Set([POS_X,POS_Y,TRANSPARENCY,SIZE,ROTATION,FLOW,REL_X,REL_Y,LINE_BODY_ALPHA,LINE_HEAD_ALPHA,SPEED,WHOLE_ALPHA,COLOR,VISIBLE_AREA])],
@@ -793,7 +792,7 @@ function milizeJsToJson(text,environment=null){return new Promise((resolve,rejec
   const timeoutMs=Math.min(60000,Math.max(4000,4000+source.length*.025));
   const timer=setTimeout(()=>done(false,null,new Error('JS 转 JSON 超时（'+Math.round(timeoutMs/1000)+'s）')),timeoutMs);
   function done(ok,chart,err){clearTimeout(timer);window.removeEventListener('message',onmsg);iframe.remove();if(ok){Object.defineProperties(chart,{_jsSource:{value:String(text)},_jsEnvironment:{value:envValues}});resolve(chart)}else reject(err)}
-  function onmsg(ev){const d=ev.data||{};if(d.token!==token)return;d.ok?done(true,d.chart):done(false,null,new Error(d.error||'JS 转 JSON 失败'))}
+  function onmsg(ev){const d=ev.data||{};if(ev.source!==iframe.contentWindow||d.token!==token)return;d.ok?done(true,d.chart):done(false,null,new Error(d.error||'JS 转 JSON 失败'))}
   window.addEventListener('message',onmsg);document.body.appendChild(iframe);
 })};
 function __milScanNamedCalls(text,names){
@@ -851,14 +850,8 @@ window.__milthmSemanticSelfTest = async function(){
 
 
 
-/* ===== FULL RENDER REVIEW PATCH ===== */
-
-/* Milthm complete-render review patch — 2026-08-06
- * Completes the ranges intentionally left outside the earlier Note/Line review:
- * package resource resolution, canonical chart selection, legacy LineList defaults,
- * storyboard picture/text/color/layer/vertex rendering, and semantic texture priority.
- */
-const __MIL_FULL_REVIEW_VERSION = '2026-08-06.3';
+/* Package resolution, storyboard rendering, legacy defaults, and texture priority. */
+const __MIL_RENDER_VERSION = '2026-08-06.3';
 const __MIL_ASSET_SAVE_KEY = SAVE_KEY+'_render-assets-v1';
 
 /* The old UI shipped with an unexplained 110 ms media offset.  Beatmap times and audio
@@ -956,7 +949,7 @@ async function expandInputFiles(input){
     if(++guard>4096)throw new Error('压缩包展开后超过 4096 个条目，已停止以避免异常包占用过多内存');
     const f=queue.shift();if(!f||!f.name)continue;
     if(/\.zip$/i.test(f.name)){const sub=await extractZip(f,Math.max(0,retainedBudget-retainedBytes));report.push('zip 解包：'+f.name+'（'+sub.length+' 个文件）');queue.push(...sub)}
-    else if(/\.7z$/i.test(f.name)){const sub=await extract7z(f);report.push('7z 解包：'+f.name+'（'+sub.length+' 个文件）');queue.push(...sub)}
+    else if(/\.7z$/i.test(f.name)){const sub=await extract7zBounded(f,Math.max(0,retainedBudget-retainedBytes));report.push('7z 解包：'+f.name+'（'+sub.length+' 个文件）');queue.push(...sub)}
     else if(MILCHT_RE.test(f.name)){const res=await extractMilcht(f);report.push('milcht 解包：'+f.name);report.push(...res.report);queue.push(...res.files)}
     else{
       retainedBytes+=Math.max(0,Number(f.size)||0);
@@ -1162,5 +1155,5 @@ window.__milthmFullRenderSelfTest = async function(){
     let badLine=false;try{normalizeMilthm({FormatVersionCode:9,SongOffset:0,BPMList:[{Start:0,BPM:120,BeatsPerBar:4}],LineCount:0,NoteList:[{Line:0,BPM:0,From:[0,0,1],To:[0,0,1],Type:0,Fake:false}],AnimationList:[],StoryBoardObjects:[]})}catch{badLine=true}ok(badLine,'越界 Note.Line 未被拒绝');
     ok(Number(state.audioDelay)===0,'默认音频偏移仍非 0');
   }catch(e){failures.push(e?.stack||String(e))}
-  return{ok:failures.length===0,version:__MIL_FULL_REVIEW_VERSION,failures};
+  return{ok:failures.length===0,version:__MIL_RENDER_VERSION,failures};
 };

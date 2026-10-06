@@ -1,4 +1,3 @@
-// Run on the phone with: node --test hud-progress.test.cjs
 // DOM stubs verify logic and wiring, not browser layout or native touch delivery.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');

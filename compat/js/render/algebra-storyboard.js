@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const __ALGEBRA_RENDER_PATCH = '2026-08-13-algebra-storyboard-v5';
+  const __ALGEBRA_RENDER_VERSION = 'algebra-storyboard-v5';
 
   /* RainPlayer's MilAnimationEase interpolates packed colors per RGBA channel.
    * Numeric interpolation of 0xRRGGBBAA produces unrelated intermediate colors. */
@@ -324,7 +324,7 @@
     }
     return {
       ok: fail.length === 0,
-      version: __ALGEBRA_RENDER_PATCH,
+      version: __ALGEBRA_RENDER_VERSION,
       failures: fail
     };
   };

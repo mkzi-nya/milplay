@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const __ALGEBRA_RENDER_PATCH='2026-08-13-algebra-storyboard-v5';
+const __ALGEBRA_RENDER_VERSION='algebra-storyboard-v5';
 
 /* RainPlayer's MilAnimationEase interpolates packed colors per RGBA channel.
  * Numeric interpolation of 0xRRGGBBAA produces unrelated intermediate colors. */
@@ -127,6 +127,6 @@ window.__algebraStoryboardReviewSelfTest=function(){
     }finally{__milDrawRotTinted=draw;state.appMode=mode;if(old)storyCache.set(key,old);else storyCache.delete(key)}
     const tr={events:[{key:0,fv:0,tv:10,startSec:0,endSec:2,ease:0,press:0,custom:''},{key:0,fv:100,tv:200,startSec:1,endSec:3,ease:0,press:0,custom:''}],starts:[0,1]};const rt={events:new Map([[BEARER_SB,new Map([[0,new Map([[0,tr]])]])]])},sb={index:0};ok(Math.abs(__algStoryboardValue(rt,sb,0,1.5)-125)<1e-6,'storyboard next-start cursor');ok((.5>=.75?.5:0)===0,'subpixel Hold body collapses without a gap');
   }catch(e){fail.push(e?.stack||String(e))}
-  return{ok:fail.length===0,version:__ALGEBRA_RENDER_PATCH,failures:fail};
+  return{ok:fail.length===0,version:__ALGEBRA_RENDER_VERSION,failures:fail};
 };
 })();

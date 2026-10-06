@@ -1,5 +1,5 @@
-/* Requested texture/resource behavior patch — 2026-08-06. */
-const __MIL_REQUESTED_PATCH_VERSION = '2026-08-06-ex-normal-and-uploaded-story-assets-v1';
+/* Texture selection and uploaded-resource lookup rules. */
+const __MIL_REQUESTED_VERSION = 'ex-normal-and-uploaded-story-assets-v1';
 
 /* Every expanded user upload is retained as one session-local asset batch.  The
  * newest batch that contains an unambiguous exact same-name file wins.  This lets a
@@ -173,7 +173,7 @@ window.__milthmFullRenderSelfTest = async function () {
   return {
     ...result,
     ok: failures.length === 0,
-    requestedPatch: __MIL_REQUESTED_PATCH_VERSION,
+    requestedPatch: __MIL_REQUESTED_VERSION,
     failures
   };
 };

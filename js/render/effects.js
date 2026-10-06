@@ -52,8 +52,7 @@ drawCombo=function(rt,sec,w,h){
 render=function(){
   resizeCanvas();const w=els.stage.width,h=els.stage.height;ctx.setTransform(1,0,0,1,0,0);drawBg(w,h);state.visibleHit=[];state.inspectHit=[];const rt=state.runtime;
   if(rt){const sec=clamp(state.currentTime,0,rt.duration),play=state.appMode==='play';ctx.save();ctx.translate(state.panX,state.panY);ctx.scale(state.viewScale,state.viewScale);const lineStates=[];for(let li=0;li<rt.lineCount;li++)lineStates.push(transformLine(rt,li,sec,w,h));
-    /* Layer order follows Pluviora src/pluviora.cpp:2139-2153 (MIT): foreground
-       follows gameplay, then HUD. Picture rendering itself is absent in Pluviora. */
+    /* Foreground storyboard layer follows gameplay and precedes the HUD. */
     drawStoryboardLayer(rt,0,sec,w,h);drawBackgroundDim(w,h);drawStoryboardLayer(rt,1,sec,w,h);
     const nonholds=rt.__pluNonHoldStarts||[],nhStart=__pluLowerByStart(nonholds,sec-.5);for(let i=nhStart;i<nonholds.length&&nonholds[i].startSec<=sec;i++)__pluDrawHitRing(rt,nonholds[i],sec,lineStates[nonholds[i].lineIdx],w,h);
     const holds=rt.__pluHolds||[],hRingStart=__pluLowerByStart(holds,sec-.5);for(let i=hRingStart;i<holds.length&&holds[i].startSec<=sec;i++)__pluDrawHitRing(rt,holds[i],sec,lineStates[holds[i].lineIdx],w,h);

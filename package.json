@@ -1,8 +1,13 @@
 {
   "private": true,
+  "description": "A static Milthm chart player for desktop and mobile browsers.",
   "scripts": {
+    "start": "python3 -m http.server 8000 --bind 127.0.0.1",
+    "build": "npm run build:compat",
     "build:compat": "node scripts/build-compatible.cjs",
-    "test": "node --test tests/*.test.cjs tests/*.test.mjs hud-progress.test.cjs"
+    "check": "find js -type f -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "test": "node --test hud-progress.test.cjs tests/*.test.cjs",
+    "test:benchmark": "node tests/benchmark.cjs"
   },
   "devDependencies": {
     "@babel/core": "^7.26.9",

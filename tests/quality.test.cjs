@@ -1,5 +1,5 @@
 'use strict';
-// node --test tests/quality.test.cjs；按 index.html 的真实覆盖顺序执行。
+// Uses the same script order as index.html.
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const path=require('node:path');
@@ -120,7 +120,7 @@ test('low-memory storyboard sampling is capped at 768x512K pixels',()=>{
   assert.ok(h.run('window.__milStoryboardSampleSize(4096,2304).width*window.__milStoryboardSampleSize(4096,2304).height')<=393216);
 });
 
-// 使用当前脚本链的语义自测；01 中旧版自测的事件、颜色取整规则已被后续覆盖。
+// Run the runtime self-tests through the same script chain as the browser build.
 for(const name of ['__milthmFullRenderSelfTest','__algebraStoryboardReviewSelfTest','__targetedReviewSelfTest']){
   test(`original semantics: ${name}`,async()=>{
     const h=setup(),result=await h.run(`window.${name}()`);

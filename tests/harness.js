@@ -1,7 +1,6 @@
 'use strict';
-/* 共享的 Node vm 测试骨架：伪造最小 DOM/Canvas，把 index.html 的 <script src> 链
- * 按真实顺序载入，从而在手机端不依赖浏览器执行 core/base.js 的解析逻辑。
- * 仅用于测试，不参与页面运行。 */
+/* Shared Node VM harness: load index.html's scripts in their real order with a
+ * minimal DOM/Canvas stub. */
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 
 function createHarness(root,opts={}){
@@ -20,6 +19,7 @@ function createHarness(root,opts={}){
     emit(t){for(const f of [...this.listeners.get(t)||[]])f({target:this,preventDefault:noop})}
     setAttribute(k,v){this[k]=v} removeAttribute(k){this[k]=''}
     appendChild(e){this.children.push(e);e.parentElement=this;if(e.id)nodes.set(e.id,e);if(e.tagName==='IFRAME'){
+      e.contentWindow={};
       const sandbox={parent:{postMessage:data=>{for(const f of [...messages])f({data,source:e.contentWindow})}},console};
       if(opts.globals)Object.assign(sandbox,opts.globals);
       vm.runInNewContext(e.srcdoc.match(/<script>([\s\S]*)<\/script>/)[1],sandbox,{timeout:opts.childTimeout||60000});

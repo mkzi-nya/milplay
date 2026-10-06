@@ -1,7 +1,6 @@
 (function(root){
 'use strict';
-// Thresholds: milthm-calculator-web/js/milkloud.js recordBestLevel.
-// AP/FC variants: cha_newui.js getLevelIconName. F keeps its dedicated F asset.
+// Score thresholds and AP/FC icon variants are kept in one small local rule set.
 function grade(score,counts={},total=0){
   score=Number.isFinite(Number(score))?Number(score):0;
   const thresholds=[1010000,1000000,950000,850000,750000,650000,600000];

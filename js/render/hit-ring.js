@@ -1,11 +1,11 @@
-/* Rendering sync patch — 2026-08-08
+/* Hit-ring and particle effects.
  * - reproduces shaders/hit_ring.frag in a cached Canvas2D alpha mask
  * - uses source hit-ring progress quantization (60 frames) and source ring color/alpha
  * - corrects source Particle random-parameter ordering
  * - note textures are selected purely by type / AP / simultaneous flags; the
  *   hand-order sprite feature is not part of this player.
  */
-const __RENDER_PATCH_VERSION='2026-08-08-reference-1.0.0-hit-ring-and-ex-hand-v1';
+const __HIT_RING_VERSION='hit-ring-and-ex-hand-v1';
 const __RENDER_PATCH_SOURCE_COMMIT='210386f98646f0ca59c6770e791d925885e8336c';
 
 /* One engine-wide shader seed for hit-ring effects. */
@@ -65,8 +65,8 @@ function __plu100RingMask(textureIndex){
   x.putImageData(im,0,0);__plu100RingMasks.set(textureIndex,c);return c;
 }
 /* The ring tint colour is a pure function of the quantized progress index / 59, so one
- * tinted composite per step can be cached forever (MilLune caches tinted textures the
- * same way via #apply_color_at_image). This removes an offscreen clear+draw+fill from
+ * tinted composite per step can be cached forever. This removes an offscreen
+ * clear+draw+fill from
  * every one of the ~36 simultaneous hit rings in dense drag sections. */
 function __plu100DrawRingMask(cx,cy,size,rotationDeg,color,textureIndex){
   if(!(size>0))return;const N=__plu100RingMaskSize;textureIndex=clamp(Math.trunc(textureIndex),0,59);
@@ -122,4 +122,4 @@ window.__plu100PatchSelfTest=function(){const fail=[],ok=(v,m)=>{if(!v)fail.push
   ok(noteTextureKey({type:NOTE_HIT,isFake:false,isAlwaysPerfect:true,isMore:true,isHold:false,note:{}})==='extap_double','EX simultaneous no-hand Tap must preserve extap_double');
   ok(noteTextureKey({type:NOTE_HIT,isFake:false,isAlwaysPerfect:true,isMore:false,isHold:true,note:{}})==='exhold','EX no-hand Hold must preserve exhold');
   const m0=__plu100RingMask(0).getContext('2d').getImageData(0,0,__plu100RingMaskSize,__plu100RingMaskSize).data,m59=__plu100RingMask(59).getContext('2d').getImageData(0,0,__plu100RingMaskSize,__plu100RingMaskSize).data;let a0=0,a59=0;for(let i=3;i<m0.length;i+=4){a0+=m0[i]>0;a59+=m59[i]>0}ok(a0>0,'hit-ring mask must contain ring pixels');ok(a59<a0,'60-step shader progress must dissolve ring pixels');
-  const q=__pluParticleParams({key:'test',globalIdx:0},0);ok(q.rotation>=0&&q.rotation<360&&q.speed>=.3&&q.speed<.72&&q.sx>=1.5&&q.sx<2.1&&q.sy>=-.5&&q.sy<.5&&q.gravity>=.9&&q.gravity<1.3,'particle source distributions invalid');return{ok:fail.length===0,version:__RENDER_PATCH_VERSION,sourceCommit:__RENDER_PATCH_SOURCE_COMMIT,ringPixelsStart:a0,ringPixelsEnd:a59,failures:fail}}
+  const q=__pluParticleParams({key:'test',globalIdx:0},0);ok(q.rotation>=0&&q.rotation<360&&q.speed>=.3&&q.speed<.72&&q.sx>=1.5&&q.sx<2.1&&q.sy>=-.5&&q.sy<.5&&q.gravity>=.9&&q.gravity<1.3,'particle source distributions invalid');return{ok:fail.length===0,version:__HIT_RING_VERSION,sourceCommit:__RENDER_PATCH_SOURCE_COMMIT,ringPixelsStart:a0,ringPixelsEnd:a59,failures:fail}}

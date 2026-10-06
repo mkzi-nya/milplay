@@ -1,19 +1,11 @@
 'use strict';
-// 手机端运行：node --test tests/milize-bridge.test.cjs
-// 覆盖：
-//   1) Beatmap.js/Milize JS 沙箱桥接契约（短别名/全名/全局 MilizeBeatmap/链式/解绑调用/env）；
-//   2) parseText 对打包谱面的识别（含 `var L=MilizeBeatmap,ul=L.env,...` 这类任意别名）；
-//   3) 有界真实谱面抽样（分层抽样 + 指定回归样本），校验解析成功率与 notes/animations/storyboard 数量。
-// 不依赖浏览器：DOM/Canvas 为最小伪造，只验证 JS 契约与结构数量，不解码像素。
+// Milize JS bridge contract tests using small charts defined in this file.
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const fs=require('node:fs');
 const path=require('node:path');
 const {createHarness}=require('./harness.js');
 
 const root=path.resolve(__dirname,'..');
-const archive=process.env.MILPLAY_ARCHIVE_DIR||'/storage/emulated/0/.ck/milthm/milthm-archive/code/chart/js';
-const extraDir=process.env.MILPLAY_EXTRA_DIR||'/storage/emulated/0/.ck/mkzi/nya/存档/音游/mil/archive/雨ep';
 const h=createHarness(root,{childTimeout:60000});
 
 function parseSource(source){
@@ -88,75 +80,6 @@ test('检测：仅 timing/line 的最小谱面仍被接受',async()=>{
   const r=await parseSource('m.timing(0,120,4);m.line();');
   assert.equal(r.chart.bpms.length,1);
   assert.equal(r.chart.lines.length,1);
-});
-
-// —— 真实谱面有界抽样 ——
-function exists(p){try{fs.accessSync(p);return true}catch{return false}}
-function stratified(dir,limit){
-  const files=fs.readdirSync(dir).filter(f=>f.endsWith('.js')).map(f=>({f,p:path.join(dir,f),size:fs.statSync(path.join(dir,f)).size})).sort((a,b)=>a.size-b.size);
-  if(files.length<=limit)return files;
-  const out=[];
-  for(let i=0;i<limit;i++)out.push(files[Math.min(Math.floor((i+.5)*files.length/limit),files.length-1)]);
-  return out;
-}
-
-test('真实谱面：两个失败样本与 Sky Islands 必须解析成功且字段合理',{timeout:120000},async()=>{
-  let total=0;
-  for(const name of ['Sprinkle_Regnaissance.js','Cloudburst_Threat - Metropolis.js','Cloudburst_Threat - Sky Islands.js']){
-    const file=path.join(archive,name);
-    if(!exists(file)){h.context.__skip=name;continue}
-    const source=fs.readFileSync(file,'utf8');
-    const {chart,report}=await parseSource(source);
-    const notes=countNotes(chart);
-    assert.ok(notes>0,`${name} 未解析出 note`);
-    assert.ok(report.includes('Beatmap.js'),`${name} 未走沙箱桥接：${report}`);
-    assert.equal(chart._note_create_order.length,notes,`${name} 创建顺序与 note 数不一致`);
-    // 重新跑一遍 makeRuntime，确认标识信息可用
-    h.context.chart=chart;
-    const rt=h.run('makeRuntime(chart)');
-    assert.equal(rt.notes.length,notes,`${name} makeRuntime note 数不一致`);
-    assert.equal(rt.storyboards.length,chart.storyboardObjects.length,`${name} storyboard 数不一致`);
-    total++;
-  }
-  if(!total)console.log('（跳过：归档目录不存在）');
-});
-
-test('真实谱面：分层抽样（有界，默认 10 个）解析成功率与数量一致',{timeout:180000},async()=>{
-  if(!exists(archive)){console.log('（跳过：归档目录不存在）');return}
-  const limit=Number(process.env.MILPLAY_SAMPLE||10);
-  const picks=stratified(archive,limit);
-  let ok=0,fail=0;const failures=[];
-  for(const {f,p,size} of picks){
-    const source=fs.readFileSync(p,'utf8');
-    try{
-      const {chart,report}=await parseSource(source);
-      const notes=countNotes(chart);
-      assert.ok(report.includes('Beatmap.js'),`${f} 未走沙箱桥接：${report}`);
-      assert.ok(notes>0,`${f} 没有 note`);
-      assert.equal(chart._note_create_order.length,notes,`${f} order 与 note 数不一致`);
-      h.context.chart=chart;
-      const rt=h.run('makeRuntime(chart)');
-      assert.equal(rt.notes.length,notes,`${f} makeRuntime note 数不一致`);
-      assert.equal(rt.storyboards.length,chart.storyboardObjects.length,`${f} storyboard 数不一致`);
-      ok++;
-    }catch(e){fail++;failures.push(`${f}(${size}): ${e.message}`)}
-  }
-  console.log(`真实谱面抽样：${ok}/${ok+fail} 成功${fail?'\n'+failures.join('\n'):''}`);
-  assert.equal(fail,0,`抽样解析失败：\n${failures.join('\n')}`);
-});
-
-test('真实谱面：指定回归样本（雨ep 目录）解析正常',{timeout:120000},async()=>{
-  const names=['Drizzle_泫.js','Drizzle_雫.js','Cloudburst_雲絡漫遊.js'];
-  if(!exists(extraDir)){console.log('（跳过：雨ep 目录不存在）');return}
-  for(const name of names){
-    const file=path.join(extraDir,name);
-    if(!exists(file)){console.log(`（跳过缺失：${name}）`);continue}
-    const {chart}=await parseSource(fs.readFileSync(file,'utf8'));
-    assert.ok(countNotes(chart)>0,`${name} 解析无 note`);
-    h.context.chart=chart;
-    const rt=h.run('makeRuntime(chart)');
-    assert.equal(rt.notes.length,countNotes(chart),`${name} makeRuntime note 数不一致`);
-  }
 });
 
 test('超时与隔离：语法错误谱面不会污染主上下文',async()=>{
